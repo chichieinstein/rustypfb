@@ -17,7 +17,7 @@ pub struct Queue<T> {
 impl<T> Queue<T> {
     pub fn new(capacity: usize) -> Self {
         Queue {
-            buffer: VecDeque::new(),
+            buffer: VecDeque::with_capacity(capacity),
             capacity: capacity,
         }
     }
