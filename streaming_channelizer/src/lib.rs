@@ -112,12 +112,12 @@ impl StreamChannelizer {
     }
     pub fn process(&mut self, sample_arr: &[Complex<f32>], output_buffer: &mut [Complex<f32>]) {
         self.internal_buffers
-            .par_iter_mut()
+            .iter_mut()
             .enumerate()
             .for_each(|(ind, item)| item.add(sample_arr[self.nchannels / 2 - ind - 1]));
 
         (self.pre_out_buffer)
-            .par_iter_mut()
+            .iter_mut()
             .enumerate()
             .for_each(|(ind, item)| {
                 (*item) = buffer_process(&self.internal_buffers, &self.coeff, ind)
