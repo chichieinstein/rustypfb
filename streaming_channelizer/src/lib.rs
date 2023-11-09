@@ -75,21 +75,23 @@ impl<T: Default + Copy, const CAPACITY: usize> Ring<T, CAPACITY> {
 }
 
 #[derive(Clone)]
-pub struct Channelizer<const TWICE_TAPS: usize> {
+pub struct Channelizer<const TWICE_TAPS: usize, const CHUNK_SIZE: usize> {
     channels: usize,
     fft: Arc<dyn Fft<f32>>,
     coeff: Vec<[f32; TWICE_TAPS]>,
-    state: Vec<Ring<Complex<f32>, TWICE_TAPS>>,
+    state: Vec<Ring<Complex<f32>, CHUNK_SIZE>>,
     scratch: Vec<Complex<f32>>,
+    chunk_scratch: Vec<Complex<f32>>,
 }
 
-impl<const TWICE_TAPS: usize> Channelizer<TWICE_TAPS> {
+impl<const TWICE_TAPS: usize, const CHUNK_SIZE: usize> Channelizer<TWICE_TAPS, CHUNK_SIZE> {
     pub fn new(channels: usize) -> Self {
         Self {
             fft: FftPlanner::new().plan_fft_inverse(channels),
             coeff: create_filter::<TWICE_TAPS>(channels),
-            state: vec![Ring::new(); channels / 2],
+            state: vec![Ring::<Complex<f32>, CHUNK_SIZE>::new(); channels / 2],
             scratch: vec![Complex::zero(); channels],
+            chunk_scratch: vec![Complex::zero(); CHUNK_SIZE * channels / 2],
             channels,
         }
     }
@@ -147,6 +149,17 @@ impl<const TWICE_TAPS: usize> Channelizer<TWICE_TAPS> {
             .process_with_scratch(&mut output[..self.channels], &mut self.scratch);
 
         self.channels
+    }
+
+    pub fn dump_state(&mut self) {
+        self.state.iter_mut().enumerate().for_each(|(ind, ring)| 
+            ring.inner_iter()
+                .enumerate()
+                .for_each(|(ind_, item)| self.chunk_scratch[ind * CHUNK_SIZE + ind_] = *item)
+        )
+    }
+    pub fn process_all(&mut self, output: &mut [Complex<f32>]) {
+        self.dump_state();
     }
 
     /// Resets the state of this channelizer
