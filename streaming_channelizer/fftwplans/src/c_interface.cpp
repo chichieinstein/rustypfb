@@ -1,4 +1,5 @@
 #include <cmath>
+#include <fftw3.h>
 using std::cyl_bessel_if;
 
 extern "C"{

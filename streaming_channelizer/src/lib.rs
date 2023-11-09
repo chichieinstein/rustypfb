@@ -32,6 +32,31 @@ impl<T> Queue<T> {
     }
 }
 
+// pub struct Queue<T> {
+//     buffer: Vec<T>,
+//     capacity: usize,
+//     start: usize
+// }
+
+// impl<T> Queue<T>  {
+//     pub fn new(capacity: usize) -> Self {
+//         Queue {
+//             buffer: VecDeque::with_capacity(capacity),
+//             capacity: capacity,
+//         }
+//     }
+
+//     pub fn add(&mut self, element: T) {
+//         if self.buffer.len() < self.capacity {
+//             self.buffer.push_back(element);
+//         } else {
+//             self.buffer.pop_front();
+//             self.buffer.push_back(element);
+//         }
+//     }
+    
+// }
+
 /*
  Streaming version of the polyphase channelizer.
  Updates outputs one slice across channels at a time.
@@ -45,7 +70,8 @@ pub struct StreamChannelizer {
     ntaps: usize,
 
     // Filter coefficients in polyphase form
-    coeff: Vec<Vec<Complex<f32>>>,
+    // coeff: Vec<Vec<Complex<f32>>>,
+    coeff: Vec<Complex<f32>>,
 
     // Plan for IFFT
     plan: Radix4<f32>,
@@ -63,20 +89,39 @@ pub struct StreamChannelizer {
     scratch_buffer: Vec<Complex<f32>>,
 }
 
-pub fn create_filter(taps: usize, channels: usize) -> Vec<Vec<Complex<f32>>> {
-    let mut inter_buffer: Vec<Vec<Complex<f32>>> = Vec::with_capacity(channels);
+// pub fn create_filter(taps: usize, channels: usize) -> Vec<Vec<Complex<f32>>> {
+//     let mut inter_buffer: Vec<Vec<Complex<f32>>> = Vec::with_capacity(channels);
+//     let channel_half = channels / 2;
+//     for chann_id in 0..channels {
+//     let mut buffer: Vec<Complex<f32>> = vec![Complex::new(0.0, 0.0); 2 * taps];
+//         for tap_id in 0..taps {
+//         let ind = tap_id*channels + chann_id;
+//         if chann_id < channel_half {
+//             buffer[2 * tap_id] = Complex::new(channel_fn(ind, channels, taps, 10.0), 0.0);
+//         } else {
+//             buffer[2 * tap_id + 1] = Complex::new(channel_fn(ind, channels, taps, 10.0), 0.0);
+//         }
+//     }
+//     inter_buffer.push(buffer);
+//     }
+//     inter_buffer
+// }
+
+pub fn create_filter(taps: usize, channels: usize) -> Vec<Complex<f32>> {
+    let mut inter_buffer: Vec<Complex<f32>> = vec![Complex::new(0.0 as f32, 0.0 as f32); channels * taps * 2];
     let channel_half = channels / 2;
     for chann_id in 0..channels {
     let mut buffer: Vec<Complex<f32>> = vec![Complex::new(0.0, 0.0); 2 * taps];
         for tap_id in 0..taps {
         let ind = tap_id*channels + chann_id;
+        let coeff_ind = chann_id * (2*taps) + 2*tap_id;
         if chann_id < channel_half {
-            buffer[2 * tap_id] = Complex::new(channel_fn(ind, channels, taps, 10.0), 0.0);
+            inter_buffer[coeff_ind] = Complex::new(channel_fn(ind, channels, taps, 10.0), 0.0);
         } else {
-            buffer[2 * tap_id + 1] = Complex::new(channel_fn(ind, channels, taps, 10.0), 0.0);
+            inter_buffer[coeff_ind + 1] = Complex::new(channel_fn(ind, channels, taps, 10.0), 0.0);
         }
     }
-    inter_buffer.push(buffer);
+    // inter_buffer.push(buffer);
     }
     inter_buffer
 }
@@ -120,7 +165,7 @@ impl StreamChannelizer {
             .iter_mut()
             .enumerate()
             .for_each(|(ind, item)| {
-                (*item) = buffer_process(&self.internal_buffers, &self.coeff, ind)
+                (*item) = buffer_process(&self.internal_buffers, &self.coeff, ind, self.nchannels, self.ntaps)
             });
         self.plan.process_outofplace_with_scratch(
             &mut self.pre_out_buffer,
@@ -132,11 +177,14 @@ impl StreamChannelizer {
 
 pub fn buffer_process(
     lhs: &Vec<Queue<Complex<f32>>>,
-    rhs: &Vec<Vec<Complex<f32>>>,
+    // rhs: &Vec<Vec<Complex<f32>>>,
+    rhs: &Vec<Complex<f32>>,
     id: usize,
+    nchannels: usize,
+    ntaps: usize
 ) -> Complex<f32> {
     let mut sum = Complex { re: 0.0, im: 0.0 };
-    let nchannels = rhs.len();
+    // let nchannels = rhs.len();
     // println!("{}", nchannels);
     let reduced_ind = if id < nchannels / 2 {
         id
@@ -144,7 +192,7 @@ pub fn buffer_process(
         id - nchannels / 2
     };
     for (ind, item) in lhs[reduced_ind].buffer.iter().enumerate(){
-        sum += (*item) * rhs[id][ind];
+        sum += (*item) * rhs[id*(2*ntaps) + ind];
     }
     sum
 }
