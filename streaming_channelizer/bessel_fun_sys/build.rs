@@ -5,6 +5,7 @@ fn main() {
     cc::Build::new()
         .cpp(true)
         .std("c++17")
+        .flag("-mavx512f")
         .file("../bessel/src/c_interface.cpp")
         .compile("foo");
     // println!("cargo:rustc-link-lib=dylib=cudart");

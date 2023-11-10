@@ -8,3 +8,6 @@ links = "bessel"
 
 [build-dependencies]
 cc = "1.0"
+
+[dependencies]
+num = "0.4.1"
