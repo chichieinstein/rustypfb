@@ -22,7 +22,7 @@ fn create_filter<const TWICE_TAPS: usize, const CHUNK_SIZE: usize>(
 ) -> Vec<[Complex<f32>; CHUNK_SIZE]> {
     let mut planner = FftPlanner::new();
     let mut plan = planner.plan_fft_forward(CHUNK_SIZE);
-    let mut result = vec![[Complex::zero(); CHUNK_SIZE]; channels];
+    let mut result = vec![[Complex::<f32>::zero(); CHUNK_SIZE]; channels];
     let taps = TWICE_TAPS / 2;
     for chann_id in 0..channels {
         let buffer = &mut result[chann_id];
