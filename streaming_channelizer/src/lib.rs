@@ -315,7 +315,9 @@ impl<const TWICE_TAPS: usize, const CHUNK_SIZE: usize> Channelizer<TWICE_TAPS, C
             .zip(self.chunk_fft_input.iter())
             .for_each(|((out, coeff), inp)| *out = inp * coeff);
         unsafe { fftwf_execute(plans.reverse_plan) };
+        let now = std::time::Instant::now();
         unsafe { fftwf_execute(plans.down_convert_plan) };
+        println!("time to do final IFFT: {:?}", now.elapsed());
     }
 
     /// Resets the state of this channelizer
@@ -333,7 +335,7 @@ mod tests {
     use super::*;
     use rayon::prelude::*;
 
-    const CHANNELS: usize = 4096;
+    const CHANNELS: usize = 1024;
     const TWICE_TAPS: usize = 24;
     const INPUT_SIGNAL: [Complex<f32>; CHANNELS / 2] = [Complex::new(1.0, 0.0); CHANNELS / 2];
     const CHUNK_SIZE: usize = 128;
@@ -351,14 +353,12 @@ mod tests {
         let mut output: Vec<Complex<f32>>= vec![Complex::zero(); CHANNELS];
 
         let now = std::time::Instant::now();
-        for _ in 0..1000 {
-            channelizer.add(&INPUT_SIGNAL);
-            // channelizer.process(&mut output);
-        }
+        channelizer.add(&INPUT_SIGNAL);
+        channelizer.process(&mut output);
         channelizer.process_all(plans);
 
-        println!("time to process 1000 slices: {:?}", now.elapsed());
-        println!("sample output: {:?}", &output[..2]);
+        // println!("time to process 1000 slices: {:?}", now.elapsed());
+        // println!("sample output: {:?}", &output[..2]);
     }
 
     // #[test]
