@@ -1,5 +1,5 @@
 use bessel_fun_sys::bessel_func;
-use bessel_fun_sys::multiply_intrinsic;
+use bessel_fun_sys::filter_apply;
 
 // use fftw_sys::{fftwf_execute, fftwf_plan, fftwf_plan_many_dft, FFTW_ESTIMATE};
 use num::{Complex, Zero};
@@ -279,7 +279,7 @@ impl<const TWICE_TAPS: usize, const QUADRUPLE_TAPS: usize> Channelizer<TWICE_TAP
             .zip(output.iter_mut())
             .for_each(|((ring, coeff), outp)| {
                 ring.inner_iter().zip(self.ring_scratch.iter_mut()).for_each(|(item, out)| *out=item.clone());
-                {unsafe{multiply_intrinsic(&mut self.ring_scratch[0], &mut coeff[0], &mut self.scratch[0], QUADRUPLE_TAPS)}};
+                {unsafe{filter_apply(&mut self.ring_scratch[0], &mut coeff[0], &mut self.scratch[0], QUADRUPLE_TAPS)}};
                 *outp = self.scratch.iter().fold(Complex::zero(), |acc, elem| acc+elem)
             });
 
@@ -346,7 +346,7 @@ mod tests {
         let mut prod = vec![Complex::<f32>::zero(); TWICE_TAPS];
         let now = std::time::Instant::now();
         for _ in 0..4096 {
-            unsafe{multiply_intrinsic(&mut lhs[0], &mut rhs[0], &mut prod[0], TWICE_TAPS)};
+            unsafe{filter_apply(&mut lhs[0], &mut rhs[0], &mut prod[0], TWICE_TAPS)};
             // channelizer.process(&mut output);
         }
         // let t0 = now.elapsed().as_secs_f32();
