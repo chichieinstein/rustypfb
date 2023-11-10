@@ -17,24 +17,43 @@ fn channel_fn(ind: usize, nchannel: usize, nproto: usize, kbeta: f32) -> f32 {
         * (if arg != 0.0 { arg.sin() / arg } else { 1.0 })
 }
 
-fn create_filter<const TWICE_TAPS: usize, const CHUNK_SIZE: usize>(
+fn create_filter_chunk<const TWICE_TAPS: usize, const CHUNK_SIZE: usize>(
     channels: usize,
-) -> Vec<[Complex<f32>; CHUNK_SIZE]> {
+) -> Vec<Complex<f32>> {
     let mut planner = FftPlanner::new();
     let mut plan = planner.plan_fft_forward(CHUNK_SIZE);
-    let mut result = vec![[Complex::<f32>::zero(); CHUNK_SIZE]; channels];
+    let mut coeff = vec![Complex::new(0.0 as f32, 0.0); CHUNK_SIZE * channels];
+    let taps = TWICE_TAPS / 2;
+    for chann_id in 0..channels {
+        // let buffer = &mut result[chann_id];
+        let mut result = [Complex::<f32>::zero(); CHUNK_SIZE];
+        for tap_id in 0..taps {
+            let ind = tap_id * channels + chann_id;
+            if chann_id < channels / 2 {
+                result[2 * tap_id] = Complex::new(channel_fn(ind, channels, taps, 10.0), 0.0);
+            } else {
+                result[2 * tap_id + 1] = Complex::new(channel_fn(ind, channels, taps, 10.0), 0.0);
+            }
+        }
+        plan.process(&mut result);
+        coeff[chann_id * CHUNK_SIZE..].clone_from_slice(&result);
+    }
+    coeff
+}
+
+fn create_filter<const TWICE_TAPS: usize>(channels: usize) -> Vec<[f32; TWICE_TAPS]> {
+    let mut result = vec![[f32::zero(); TWICE_TAPS]; channels];
     let taps = TWICE_TAPS / 2;
     for chann_id in 0..channels {
         let buffer = &mut result[chann_id];
         for tap_id in 0..taps {
             let ind = tap_id * channels + chann_id;
             if chann_id < channels / 2 {
-                buffer[2 * tap_id] = Complex::new(channel_fn(ind, channels, taps, 10.0), 0.0);
+                buffer[2 * tap_id] = channel_fn(ind, channels, taps, 10.0);
             } else {
-                buffer[2 * tap_id + 1] = Complex::new(channel_fn(ind, channels, taps, 10.0), 0.0);
+                buffer[2 * tap_id + 1] = channel_fn(ind, channels, taps, 10.0);
             }
         }
-        plan.process(buffer);
     }
     result
 }
@@ -84,12 +103,14 @@ impl<T: Default + Copy, const CAPACITY: usize> Ring<T, CAPACITY> {
 pub struct Channelizer<const TWICE_TAPS: usize, const CHUNK_SIZE: usize> {
     channels: usize,
     fft: Arc<dyn Fft<f32>>,
-    coeff: Vec<[Complex<f32>; CHUNK_SIZE]>,
+    coeff: Vec<[f32; TWICE_TAPS]>,
+    conv_coeff: Vec<Complex<f32>>,
     state: Vec<Ring<Complex<f32>, CHUNK_SIZE>>,
     scratch: Vec<Complex<f32>>,
     forward: fftwf_plan,
     backward: fftwf_plan,
     downconvert: fftwf_plan,
+
     chunk_fft_input: Vec<Complex<f32>>,
     chunk_fft_output: Vec<Complex<f32>>,
     filter_fft_input: Vec<Complex<f32>>,
@@ -173,7 +194,8 @@ impl<const TWICE_TAPS: usize, const CHUNK_SIZE: usize> Channelizer<TWICE_TAPS, C
     ) -> Self {
         Self {
             fft: FftPlanner::new().plan_fft_inverse(channels),
-            coeff: create_filter::<TWICE_TAPS, CHUNK_SIZE>(channels),
+            coeff: create_filter::<TWICE_TAPS>(channels), 
+            conv_coeff: create_filter_chunk::<TWICE_TAPS, CHUNK_SIZE>(channels),
             state: vec![Ring::<Complex<f32>, CHUNK_SIZE>::new(); channels / 2],
             scratch: vec![Complex::zero(); channels],
             chunk_fft_input: vec![Complex::zero(); (CHUNK_SIZE * channels / 2)],
@@ -244,15 +266,20 @@ impl<const TWICE_TAPS: usize, const CHUNK_SIZE: usize> Channelizer<TWICE_TAPS, C
 
     pub fn dump_state(&mut self) {
         self.state.iter_mut().enumerate().for_each(|(ind, ring)| {
-            ring.inner_iter()
-                .enumerate()
-                .for_each(|(ind_, item)| self.chunk_fft_input[ind * CHUNK_SIZE + ind_] = (*item) / (Complex::new((CHUNK_SIZE*self.channels) as f32, 0.0)))
+            ring.inner_iter().enumerate().for_each(|(ind_, item)| {
+                self.chunk_fft_input[ind * CHUNK_SIZE + ind_] =
+                    (*item) / (Complex::new((CHUNK_SIZE * self.channels) as f32, 0.0))
+            })
         })
     }
     pub fn process_all(&mut self, output: &mut [Complex<f32>]) {
         self.dump_state();
         unsafe { fftwf_execute(self.forward) };
-        //multiply with filter
+        self.chunk_fft_output
+            .iter_mut()
+            .zip(self.conv_coeff.iter())
+            .zip(self.chunk_fft_input.iter())
+            .for_each(|((out, coeff), inp)| *out = inp * coeff);
         unsafe { fftwf_execute(self.backward) };
         unsafe { fftwf_execute(self.downconvert) };
     }
