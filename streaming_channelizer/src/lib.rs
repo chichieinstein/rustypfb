@@ -7,6 +7,7 @@ use rustfft::{Fft, FftPlanner};
 use std::iter::Chain;
 use std::slice::Iter;
 use std::sync::Arc;
+use std::time::Instant;
 
 fn channel_fn(ind: usize, nchannel: usize, nproto: usize, kbeta: f32) -> f32 {
     let ind_arg = ind as f32;
@@ -36,7 +37,7 @@ fn create_filter_chunk<const TWICE_TAPS: usize, const CHUNK_SIZE: usize>(
             }
         }
         plan.process(&mut result);
-        coeff[chann_id * CHUNK_SIZE..].clone_from_slice(&result);
+        coeff[chann_id * CHUNK_SIZE..(chann_id+1)*CHUNK_SIZE].clone_from_slice(&result);
     }
     coeff
 }
@@ -305,18 +306,22 @@ impl<const TWICE_TAPS: usize, const CHUNK_SIZE: usize> Channelizer<TWICE_TAPS, C
     }
     pub fn process_all(
         &mut self,
-        fftwoutput: &mut [Complex<f32>],
         plans: ChannelizationPlans<CHUNK_SIZE>,
     ) {
         self.dump_state();
+        // println!("dumping state: {:?}", now.elapsed());
+        
         unsafe { fftwf_execute(plans.forward_plan) };
         self.chunk_fft_output
             .iter_mut()
             .zip(self.conv_coeff.iter())
             .zip(self.chunk_fft_input.iter())
             .for_each(|((out, coeff), inp)| *out = inp * coeff);
-        unsafe { fftwf_execute(plans.reverse_plan) };
+        let now = Instant::now();
+        // unsafe { fftwf_execute(plans.reverse_plan) };
         unsafe { fftwf_execute(plans.down_convert_plan) };
+        println!("other ffts: {:?}", now.elapsed());
+
     }
 
     /// Resets the state of this channelizer
@@ -337,7 +342,7 @@ mod tests {
     const CHANNELS: usize = 4096;
     const TWICE_TAPS: usize = 24;
     const INPUT_SIGNAL: [Complex<f32>; CHANNELS / 2] = [Complex::new(1.0, 0.0); CHANNELS / 2];
-    const CHUNK_SIZE: usize = 128;
+    const CHUNK_SIZE: usize = 64;
 
     #[test]
     fn process() {
@@ -349,16 +354,21 @@ mod tests {
             &mut channelizer.chunk_output,
             channelizer.channels as i32,
         );
-        let mut output = vec![Complex::zero(); CHANNELS];
+        // let mut output = vec![Complex::zero(); CHANNELS];
 
         let now = std::time::Instant::now();
-        for _ in 0..1000 {
+        for _ in 0..CHUNK_SIZE {
             channelizer.add(&INPUT_SIGNAL);
-            channelizer.process(&mut output);
+            // channelizer.process(&mut output);
         }
-
-        println!("time to process 1000 slices: {:?}", now.elapsed());
-        println!("sample output: {:?}", &output[..2]);
+        // let t0 = now.elapsed().as_secs_f32();
+        // println!("time taken to add: {:?}", t0);
+        // let now2 = std::time::Instant::now();
+        channelizer.process_all(plans);
+        // let t = now2.elapsed().as_secs_f32();
+        // println!("time to process given chunk: {:?}", t);
+        // println!("throughput: {:?}", ((CHUNK_SIZE * CHANNELS / 2) as f32) / t);
+        println!("sample output: {:?}", &channelizer.chunk_output[..2]);
     }
 
     // #[test]
