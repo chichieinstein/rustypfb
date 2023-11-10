@@ -36,7 +36,7 @@ fn create_filter_chunk<const TWICE_TAPS: usize, const CHUNK_SIZE: usize>(
             }
         }
         plan.process(&mut result);
-        coeff[chann_id * CHUNK_SIZE..].clone_from_slice(&result);
+        coeff[chann_id * CHUNK_SIZE..(chann_id + 1) * CHUNK_SIZE].clone_from_slice(&result);
     }
     coeff
 }
@@ -305,7 +305,6 @@ impl<const TWICE_TAPS: usize, const CHUNK_SIZE: usize> Channelizer<TWICE_TAPS, C
     }
     pub fn process_all(
         &mut self,
-        fftwoutput: &mut [Complex<f32>],
         plans: ChannelizationPlans<CHUNK_SIZE>,
     ) {
         self.dump_state();
@@ -349,13 +348,14 @@ mod tests {
             &mut channelizer.chunk_output,
             channelizer.channels as i32,
         );
-        let mut output = vec![Complex::zero(); CHANNELS];
+        let mut output: Vec<Complex<f32>>= vec![Complex::zero(); CHANNELS];
 
         let now = std::time::Instant::now();
         for _ in 0..1000 {
             channelizer.add(&INPUT_SIGNAL);
-            channelizer.process(&mut output);
+            // channelizer.process(&mut output);
         }
+        channelizer.process_all(plans);
 
         println!("time to process 1000 slices: {:?}", now.elapsed());
         println!("sample output: {:?}", &output[..2]);
