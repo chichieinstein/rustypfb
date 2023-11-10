@@ -2,6 +2,7 @@ use bessel_fun_sys::bessel_func;
 
 use num::{Complex, Zero};
 use rustfft::{Fft, FftPlanner};
+use fftw_sys::{fftwf_plan_many_dft, fftwf_plan, fftwf_execute, FFTW_ESTIMATE};
 
 use std::iter::Chain;
 use std::slice::Iter;
@@ -31,6 +32,7 @@ fn create_filter<const TWICE_TAPS: usize>(channels: usize) -> Vec<[f32; TWICE_TA
         }
     }
     result
+    
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -81,17 +83,45 @@ pub struct Channelizer<const TWICE_TAPS: usize, const CHUNK_SIZE: usize> {
     coeff: Vec<[f32; TWICE_TAPS]>,
     state: Vec<Ring<Complex<f32>, CHUNK_SIZE>>,
     scratch: Vec<Complex<f32>>,
-    chunk_scratch: Vec<Complex<f32>>,
+    forward: fftwf_plan,
+    backward: fftwf_plan,
+    downconvert: fftwf_plan,
+    chunk_fft_input: Vec<Complex<f32>>,
+    chunk_fft_output: Vec<Complex<f32>>,
+    filter_fft_input: Vec<Complex<f32>>,
+    chunk_output: Vec<Complex<f32>>,
+}
+
+pub enum FftList {
+    Input,
+    Filter,
+    Downconvert
+}
+
+pub fn plan_helper(input: &mut Vec<Complex<f32>>, output: &mut Vec<Complex<f32>>, nchannel: &i32, chunks: &i32, plan: FftList) -> fftwf_plan
+{
+    match plan {
+        FftList::Input => unsafe{fftwf_plan_many_dft(1, chunks, nchannel/2, &mut input[0], chunks, 1, *chunks, &mut output[0], chunks, 1, *chunks, -1, FFTW_ESTIMATE)},
+        FftList::Filter => unsafe{fftwf_plan_many_dft(1, chunks, *nchannel, &mut input[0], chunks, 1, *chunks, &mut output[0], chunks, 1, *chunks, 1, FFTW_ESTIMATE)},
+        FftList::Downconvert => unsafe{fftwf_plan_many_dft(1, nchannel, *chunks, &mut input[0], nchannel, *chunks, 1, &mut output[0], nchannel, *chunks, *chunks, -1, FFTW_ESTIMATE)}
+    }
+    
 }
 
 impl<const TWICE_TAPS: usize, const CHUNK_SIZE: usize> Channelizer<TWICE_TAPS, CHUNK_SIZE> {
-    pub fn new(channels: usize) -> Self {
+    pub fn new(channels: usize, forward: fftwf_plan, backward: fftwf_plan, downconvert: fftwf_plan) -> Self {
         Self {
             fft: FftPlanner::new().plan_fft_inverse(channels),
             coeff: create_filter::<TWICE_TAPS>(channels),
             state: vec![Ring::<Complex<f32>, CHUNK_SIZE>::new(); channels / 2],
             scratch: vec![Complex::zero(); channels],
-            chunk_scratch: vec![Complex::zero(); CHUNK_SIZE * channels / 2],
+            chunk_fft_input: vec![Complex::zero(); (CHUNK_SIZE* channels / 2)],
+            chunk_fft_output: vec![Complex::zero(); (CHUNK_SIZE* channels)],
+            filter_fft_input: vec![Complex::zero(); (CHUNK_SIZE* channels)],
+            chunk_output: vec![Complex::zero(); (CHUNK_SIZE* channels)],
+            forward, 
+            backward,
+            downconvert,
             channels,
         }
     }
@@ -155,11 +185,15 @@ impl<const TWICE_TAPS: usize, const CHUNK_SIZE: usize> Channelizer<TWICE_TAPS, C
         self.state.iter_mut().enumerate().for_each(|(ind, ring)| 
             ring.inner_iter()
                 .enumerate()
-                .for_each(|(ind_, item)| self.chunk_scratch[ind * CHUNK_SIZE + ind_] = *item)
+                .for_each(|(ind_, item)| self.chunk_fft_input[ind * CHUNK_SIZE + ind_] = *item)
         )
     }
     pub fn process_all(&mut self, output: &mut [Complex<f32>]) {
         self.dump_state();
+        unsafe{fftwf_execute(self.forward)};
+        //multiply with filter
+        unsafe{fftwf_execute(self.backward)};
+        unsafe{fftwf_execute(self.downconvert)};
     }
 
     /// Resets the state of this channelizer
