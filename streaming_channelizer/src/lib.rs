@@ -278,9 +278,23 @@ impl<const TWICE_TAPS: usize, const QUADRUPLE_TAPS: usize> Channelizer<TWICE_TAP
             .zip(self.coeff.iter_mut())
             .zip(output.iter_mut())
             .for_each(|((ring, coeff), outp)| {
-                ring.inner_iter().zip(self.ring_scratch.iter_mut()).for_each(|(item, out)| *out=item.clone());
-                {unsafe{filter_apply(&mut self.ring_scratch[0], &mut coeff[0], &mut self.scratch[0], QUADRUPLE_TAPS)}};
-                *outp = self.scratch.iter().fold(Complex::zero(), |acc, elem| acc+elem)
+                ring.inner_iter()
+                    .zip(self.ring_scratch.iter_mut())
+                    .for_each(|(item, out)| *out = item.clone());
+                {
+                    unsafe {
+                        filter_apply(
+                            &mut self.ring_scratch[0],
+                            &mut coeff[0],
+                            &mut self.scratch[0],
+                            QUADRUPLE_TAPS,
+                        )
+                    }
+                };
+                *outp = self
+                    .scratch
+                    .iter()
+                    .fold(Complex::zero(), |acc, elem| acc + elem)
             });
 
         self.fft
@@ -330,33 +344,53 @@ mod tests {
     use std::sync::mpsc::channel;
 
     use super::*;
+    use num::Zero;
     use rayon::prelude::*;
 
-    const CHANNELS: usize = 4096;
-    const TWICE_TAPS: usize = 32;
+    const CHANNELS: usize = 1024;
+    const TWICE_TAPS: usize = 128;
     const QUADRUPLE_TAPS: usize = 64;
+    const CHUNK_SIZE: usize = 8192;
+    const NTIMES: usize = 20;
     const INPUT_SIGNAL: [Complex<f32>; CHANNELS / 2] = [Complex::new(1.0, 0.0); CHANNELS / 2];
     // const CHUNK_SIZE: usize = 64;
 
     #[test]
-    fn process() {
-        let mut channelizer = Channelizer::<TWICE_TAPS, QUADRUPLE_TAPS>::new(CHANNELS);
-        let mut lhs = vec![Complex::<f32>::zero(); TWICE_TAPS];
-        let mut rhs = vec![0.0 as f32; QUADRUPLE_TAPS];
-        let mut prod = vec![Complex::<f32>::zero(); TWICE_TAPS];
-        let now = std::time::Instant::now();
-        for _ in 0..4096 {
-            unsafe{filter_apply(&mut lhs[0], &mut rhs[0], &mut prod[0], TWICE_TAPS)};
-            // channelizer.process(&mut output);
+    fn state_timing() {
+        let mut ring = Ring::<Complex<f32>, CHUNK_SIZE>::new();
+        let mut state = vec![Ring::<Complex<f32>, CHUNK_SIZE>::new(); CHANNELS / 2];
+        let mut output = vec![[Complex::<f32>::zero(); CHUNK_SIZE]; CHANNELS / 2];
+        let samples = vec![Complex::<f32>::new(1.1, 1.2); CHUNK_SIZE];
+        for ring in &mut state {
+            for element in &samples {
+                ring.add(*element);
+            }
         }
-        // let t0 = now.elapsed().as_secs_f32();
-        // println!("time taken to add: {:?}", t0);
-        // let now2 = std::time::Instant::now();
-        // channelizer.process_all(plans);
-        let t = now.elapsed().as_nanos();
-        println!("time to process given chunk: {:?}", t);
-        // println!("throughput: {:?}", ((CHUNK_SIZE * CHANNELS / 2) as f32) / t);
-        // println!("sample output: {:?}", &channelizer.chunk_output[..2]);
+        // let mut lhs = [Complex::<f32>::new(1.0, 1.3);TWICE_TAPS];
+        // let mut rhs = [7.2 as f32;QUADRUPLE_TAPS];
+        // let mut prod = [Complex::<f32>::new(1.0, 1.3);TWICE_TAPS];
+        let now = Instant::now();
+
+        // Takes 906 us to do state dump.
+        for _ in 0..NTIMES {
+        state
+            .iter()
+            .zip(output.iter_mut())
+            .for_each(|(ring, output_arr)| {
+                ring.inner_iter()
+                    .zip(output_arr.iter_mut())
+                    .for_each(|(ring_element, output_arr_elem)| *output_arr_elem = *ring_element)
+            });
+        }
+        // Takes 158 us on average to do intrinsic filter application.
+        //     for _ in 0..NTIMES
+        //     {
+        //     for ind in 0..CHANNELS
+        //     {
+        //         unsafe{filter_apply(&mut lhs[0], &mut rhs[0], &mut prod[0], QUADRUPLE_TAPS)};
+        //     }
+        // }
+        println!("{:?}", now.elapsed().as_secs_f32() / (NTIMES as f32));
     }
 
     // #[test]

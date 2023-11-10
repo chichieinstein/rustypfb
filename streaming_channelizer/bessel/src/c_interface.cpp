@@ -19,8 +19,19 @@ extern "C"{
             _mm512_storeu_ps(product+j, c);
         }
     }
+    void cola_add(float* lhs, float* rhs, float* product, size_t ntaps, size_t len)
+    {
+        for (size_t j=0; j < len - ntaps; j++)
+        {
+            multiply_intrinsic(lhs+j, rhs, product+j, ntaps);
+        }
+    }
     void filter_apply(complex<float>* lhs, float* rhs, complex<float>* product, size_t ncols)
     {
         multiply_intrinsic(reinterpret_cast<float*>(lhs), rhs, reinterpret_cast<float*>(product), ncols);
+    }
+    void convolve(complex<float>* lhs, float* rhs, complex<float>* product, size_t ntaps, size_t len)
+    {
+        cola_add(reinterpret_cast<float*>(lhs), rhs, reinterpret_cast<float*>(product), ntaps, len);
     }
 }
