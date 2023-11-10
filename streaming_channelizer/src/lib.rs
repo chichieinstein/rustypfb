@@ -157,7 +157,7 @@ pub fn plan_helper(
                 nchannel,
                 *chunks,
                 *chunks,
-                -1,
+                1,
                 FFTW_ESTIMATE,
             )
         },
@@ -246,7 +246,7 @@ impl<const TWICE_TAPS: usize, const CHUNK_SIZE: usize> Channelizer<TWICE_TAPS, C
         self.state.iter_mut().enumerate().for_each(|(ind, ring)| {
             ring.inner_iter()
                 .enumerate()
-                .for_each(|(ind_, item)| self.chunk_fft_input[ind * CHUNK_SIZE + ind_] = *item)
+                .for_each(|(ind_, item)| self.chunk_fft_input[ind * CHUNK_SIZE + ind_] = (*item) / (Complex::new((CHUNK_SIZE*self.channels) as f32, 0.0)))
         })
     }
     pub fn process_all(&mut self, output: &mut [Complex<f32>]) {
