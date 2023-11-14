@@ -1,12 +1,6 @@
-use bessel_fun_sys::bessel_func;
-use bessel_fun_sys::filter_apply;
-
-// use fftw_sys::{fftwf_execute, fftwf_plan, fftwf_plan_many_dft, FFTW_ESTIMATE};
+use bessel_fun_sys::{bessel_func};
 use num::{Complex, Zero};
 use rustfft::{Fft, FftPlanner};
-
-use std::iter::Chain;
-use std::slice::Iter;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -19,420 +13,202 @@ fn channel_fn(ind: usize, nchannel: usize, nproto: usize, kbeta: f32) -> f32 {
         * (if arg != 0.0 { arg.sin() / arg } else { 1.0 })
 }
 
-// fn create_filter_chunk<const TWICE_TAPS: usize, const CHUNK_SIZE: usize>(
-//     channels: usize,
-// ) -> Vec<Complex<f32>> {
-//     let mut planner = FftPlanner::new();
-//     let mut plan = planner.plan_fft_forward(CHUNK_SIZE);
-//     let mut coeff = vec![Complex::new(0.0 as f32, 0.0); CHUNK_SIZE * channels];
-//     let taps = TWICE_TAPS / 2;
+// fn create_filter<const QUADRUPLE_TAPS: usize>(channels: usize) -> [f32; QUADRUPLE_TAPS] {
+//     let mut result = [f32::zero(); QUADRUPLE_TAPS];
+//     let taps = QUADRUPLE_TAPS / (4 * channels);
 //     for chann_id in 0..channels {
-//         // let buffer = &mut result[chann_id];
-//         let mut result = [Complex::<f32>::zero(); CHUNK_SIZE];
 //         for tap_id in 0..taps {
 //             let ind = tap_id * channels + chann_id;
 //             if chann_id < channels / 2 {
-//                 result[2 * tap_id] = Complex::new(channel_fn(ind, channels, taps, 10.0), 0.0);
+//                 result[4 * taps * chann_id + 4 * tap_id] = channel_fn(ind, channels, taps, 10.0);
+//                 result[4 * taps * chann_id + 4 * tap_id + 1] =
+//                     channel_fn(ind, channels, taps, 10.0);
 //             } else {
-//                 result[2 * tap_id + 1] = Complex::new(channel_fn(ind, channels, taps, 10.0), 0.0);
+//                 result[4 * taps * chann_id + 4 * tap_id + 2] =
+//                     channel_fn(ind, channels, taps, 10.0);
+//                 result[4 * taps * chann_id + 4 * tap_id + 3] =
+//                     channel_fn(ind, channels, taps, 10.0);
 //             }
 //         }
-//         plan.process(&mut result);
-//         coeff[chann_id * CHUNK_SIZE..(chann_id+1)*CHUNK_SIZE].clone_from_slice(&result);
 //     }
-//     coeff
+//     result
 // }
 
-fn create_filter<const QUADRUPLE_TAPS: usize>(channels: usize) -> Vec<[f32; QUADRUPLE_TAPS]> {
-    let mut result = vec![[f32::zero(); QUADRUPLE_TAPS]; channels];
-    let taps = QUADRUPLE_TAPS / 4;
+fn create_filter_chunk<const TWICE_TAPS: usize>(
+    channels: usize,
+    slice: usize,
+) -> Vec<Complex<f32>> {
+    let mut result = vec![Complex::<f32>::zero(); channels * slice];
+    let taps = TWICE_TAPS / 2;
+    let mut fft_planner = FftPlanner::new();
+    let mut fft = fft_planner.plan_fft_forward(slice);
     for chann_id in 0..channels {
-        let buffer = &mut result[chann_id];
+        let buffer = &mut result[chann_id * slice..(chann_id + 1) * slice];
         for tap_id in 0..taps {
             let ind = tap_id * channels + chann_id;
             if chann_id < channels / 2 {
-                buffer[4 * tap_id] = channel_fn(ind, channels, taps, 10.0);
-                buffer[4 * tap_id + 1] = channel_fn(ind, channels, taps, 10.0);
+                buffer[2 * tap_id] =
+                    Complex::<f32>::new(channel_fn(ind, channels, taps, 10.0), 0.0);
             } else {
-                buffer[4 * tap_id + 2] = channel_fn(ind, channels, taps, 10.0);
-                buffer[4 * tap_id + 3] = channel_fn(ind, channels, taps, 10.0);
+                buffer[2 * tap_id + 1] =
+                    Complex::<f32>::new(channel_fn(ind, channels, taps, 10.0), 0.0);
             }
         }
+        fft.process(buffer);
     }
     result
 }
 
 #[derive(Copy, Clone, Debug)]
-struct Ring<T, const CAPACITY: usize> {
-    head: usize,
-    full: bool,
-    buffer: [T; CAPACITY],
+pub struct ChannState<T, const CHUNK_SIZE: usize, const HOP_SIZE: usize> {
+    buffer: [T; CHUNK_SIZE],
 }
 
-impl<T: Default + Copy, const CAPACITY: usize> Ring<T, CAPACITY> {
+impl<T: Default + Copy, const CHUNK_SIZE: usize, const HOP_SIZE: usize>
+    ChannState<T, CHUNK_SIZE, HOP_SIZE>
+{
     fn new() -> Self {
         Self {
-            head: 0,
-            full: false,
-            buffer: [T::default(); CAPACITY],
+            buffer: [T::default(); CHUNK_SIZE],
+            // flag: true,
         }
     }
 
     #[inline]
-    fn add(&mut self, element: T) {
-        self.buffer[self.head] = element;
-        self.head += 1;
-        if self.head >= CAPACITY {
-            self.head = 0;
-            self.full = true;
-        }
-    }
-
-    fn inner_iter(&self) -> Chain<Iter<'_, T>, Iter<'_, T>> {
-        let initial = self.buffer[..self.head].iter();
-        if self.full {
-            return initial.chain(self.buffer[self.head..].iter());
-        }
-        initial.chain(self.buffer[0..0].iter())
-    }
-
-    #[inline]
-    fn reset(&mut self) {
-        self.head = 0;
-        self.full = false;
+    fn add(&mut self, samples: &[T]) {
+        self.buffer.rotate_left(HOP_SIZE);
+        self.buffer[CHUNK_SIZE - HOP_SIZE..].clone_from_slice(&samples[..HOP_SIZE]);
     }
 }
 
-#[derive(Clone)]
-pub struct Channelizer<const TWICE_TAPS: usize, const QUADRUPLE_TAPS: usize> {
-    channels: usize,
-    fft: Arc<dyn Fft<f32>>,
-    coeff: Vec<[f32; QUADRUPLE_TAPS]>,
-    state: Vec<Ring<Complex<f32>, TWICE_TAPS>>,
-    scratch: Vec<Complex<f32>>,
-    ring_scratch: Vec<Complex<f32>>,
+pub struct StreamingChannelizer<
+    const CHUNK_SIZE: usize,
+    const TWICE_TAPS: usize,
+    const HOP_SIZE: usize,
+> {
+    state: ChannState<Complex<f32>, CHUNK_SIZE, HOP_SIZE>,
+    inp_scratch: [Complex<f32>; CHUNK_SIZE],
+    filter_scratch: Vec<Complex<f32>>,
+    fft_scratch: Vec<Complex<f32>>,
+    downconvert_fft_scratch: Vec<Complex<f32>>,
+    channels: i32,
+    filter: Vec<Complex<f32>>,
+    output: Vec<Complex<f32>>,
+    output_scratch: Vec<Complex<f32>>,
+    fft_initial: Arc<dyn Fft<f32>>,
+    fft_inverse: Arc<dyn Fft<f32>>,
+    fft_downconvert: Arc<dyn Fft<f32>>,
 }
 
-// pub enum FftList {
-//     Input,
-//     Filter,
-//     Downconvert,
-// }
+impl<const CHUNK_SIZE: usize, const TWICE_TAPS: usize, const HOP_SIZE: usize>
+    StreamingChannelizer<CHUNK_SIZE, TWICE_TAPS, HOP_SIZE>
+{
+    pub fn new(channels: i32) -> Self {
+        let state = ChannState::<Complex<f32>, CHUNK_SIZE, HOP_SIZE>::new();
+        let scratch = [Complex::<f32>::zero(); CHUNK_SIZE];
+        let filter_scratch = vec![Complex::<f32>::zero(); 2 * CHUNK_SIZE];
+        let fft_scratch = vec![Complex::<f32>::zero(); (2 * CHUNK_SIZE) / (channels as usize)];
+        let downconvert_fft_scratch = vec![Complex::<f32>::zero(); channels as usize];
+        let output_scratch = vec![Complex::<f32>::zero(); channels as usize];
+        let mut output = vec![Complex::<f32>::zero(); 2 * CHUNK_SIZE];
+        let mut plan = FftPlanner::new();
 
-// pub fn plan_helper(
-//     input: &mut Vec<Complex<f32>>,
-//     output: &mut Vec<Complex<f32>>,
-//     nchannel: &i32,
-//     chunks: &i32,
-//     plan: FftList,
-// ) -> fftwf_plan {
-//     match plan {
-//         FftList::Input => unsafe {
-//             fftwf_plan_many_dft(
-//                 1,
-//                 chunks,
-//                 nchannel / 2,
-//                 &mut input[0],
-//                 chunks,
-//                 1,
-//                 *chunks,
-//                 &mut output[0],
-//                 chunks,
-//                 1,
-//                 *chunks,
-//                 -1,
-//                 FFTW_ESTIMATE,
-//             )
-//         },
-//         FftList::Filter => unsafe {
-//             fftwf_plan_many_dft(
-//                 1,
-//                 chunks,
-//                 *nchannel,
-//                 &mut input[0],
-//                 chunks,
-//                 1,
-//                 *chunks,
-//                 &mut output[0],
-//                 chunks,
-//                 1,
-//                 *chunks,
-//                 1,
-//                 FFTW_ESTIMATE,
-//             )
-//         },
-//         FftList::Downconvert => unsafe {
-//             fftwf_plan_many_dft(
-//                 1,
-//                 nchannel,
-//                 *chunks,
-//                 &mut input[0],
-//                 nchannel,
-//                 *chunks,
-//                 1,
-//                 &mut output[0],
-//                 nchannel,
-//                 *chunks,
-//                 *chunks,
-//                 1,
-//                 FFTW_ESTIMATE,
-//             )
-//         },
-//     }
-// }
-
-// pub struct ChannelizationPlans<const CHUNK_SIZE: usize> {
-//     forward_plan: fftwf_plan,
-//     reverse_plan: fftwf_plan,
-//     down_convert_plan: fftwf_plan,
-//     channels: i32,
-// }
-
-// impl<const CHUNK_SIZE: usize> ChannelizationPlans<CHUNK_SIZE> {
-//     pub fn new(
-//         chunk_fft_input: &mut Vec<Complex<f32>>,
-//         chunk_fft_output: &mut Vec<Complex<f32>>,
-//         filter_fft_input: &mut Vec<Complex<f32>>,
-//         chunk_output: &mut Vec<Complex<f32>>,
-//         channels: i32,
-//     ) -> Self {
-//         Self {
-//             forward_plan: plan_helper(
-//                 chunk_fft_input,
-//                 chunk_fft_output,
-//                 &channels,
-//                 &(CHUNK_SIZE as i32),
-//                 FftList::Input,
-//             ),
-//             reverse_plan: plan_helper(
-//                 chunk_fft_output,
-//                 filter_fft_input,
-//                 &channels,
-//                 &(CHUNK_SIZE as i32),
-//                 FftList::Filter,
-//             ),
-//             down_convert_plan: plan_helper(
-//                 filter_fft_input,
-//                 chunk_output,
-//                 &channels,
-//                 &(CHUNK_SIZE as i32),
-//                 FftList::Downconvert,
-//             ),
-//             channels,
-//         }
-//     }
-// }
-
-impl<const TWICE_TAPS: usize, const QUADRUPLE_TAPS: usize> Channelizer<TWICE_TAPS, QUADRUPLE_TAPS> {
-    pub fn new(channels: usize) -> Self {
-        Self {
-            fft: FftPlanner::new().plan_fft_inverse(channels),
-            coeff: create_filter::<QUADRUPLE_TAPS>(channels),
-            state: vec![Ring::<Complex<f32>, TWICE_TAPS>::new(); channels / 2],
-            scratch: vec![Complex::zero(); channels],
-            ring_scratch: vec![Complex::zero(); TWICE_TAPS],
+        StreamingChannelizer {
+            state,
+            inp_scratch: scratch,
+            filter_scratch,
+            filter: create_filter_chunk::<TWICE_TAPS>(
+                channels as usize,
+                2 * CHUNK_SIZE / (channels as usize),
+            ),
             channels,
+            fft_scratch,
+            downconvert_fft_scratch,
+            fft_initial: plan.plan_fft_forward(2 * CHUNK_SIZE / (channels as usize)),
+            fft_inverse: plan.plan_fft_inverse(CHUNK_SIZE / (channels as usize)),
+            fft_downconvert: plan.plan_fft_inverse(channels as usize),
+            output_scratch,
+            output,
         }
     }
 
-    pub fn channels(&self) -> usize {
-        self.channels
+    pub fn add(&mut self, samples: &[Complex<f32>]) {
+        self.state.add(samples);
     }
 
-    /// Add a single slice of channels to the state of this channelizer.
-    ///
-    /// `add` will only take the first [`channels`] divded by two number of samples from the given
-    /// slice. Any additional samples will be ignored. `add` returns the total number of samples
-    /// taken from the given slice.
-    ///
-    /// # Panics
-    /// If the length of the given sample slice isn't greater than the number of channels divided by
-    /// two, this call will panic. This call is only expected to add a single slice at a time.
-    ///
-    /// [`channels`]: Self::channels()
-    #[inline]
-    pub fn add(&mut self, samples: &[Complex<f32>]) -> usize {
-        assert!(samples.len() >= self.channels / 2);
-        self.state
-            .iter_mut()
-            .zip(samples.iter().take(self.channels / 2).rev())
-            .for_each(|(ring, sample)| ring.add(*sample));
-
-        self.channels / 2
-    }
-
-    /// Produce a channelizer slice from this channelizer's current state
-    ///
-    /// The given output slice is expected to be at least of size equal to [`channels`]. Any
-    /// additional space in the output slice is unused. `process` will return the number of
-    /// locations modified by the call.
-    ///
-    /// # Panics
-    /// `process` will panic if the length of the output is less than [`channels`].
-    ///
-    /// [`channels`]: Self::channels()
-    pub fn process(&mut self, output: &mut [Complex<f32>]) -> usize {
-        self.state
-            .iter()
-            .chain(self.state.iter())
-            .zip(self.coeff.iter_mut())
-            .zip(output.iter_mut())
-            .for_each(|((ring, coeff), outp)| {
-                ring.inner_iter()
-                    .zip(self.ring_scratch.iter_mut())
-                    .for_each(|(item, out)| *out = item.clone());
-                {
-                    unsafe {
-                        filter_apply(
-                            &mut self.ring_scratch[0],
-                            &mut coeff[0],
-                            &mut self.scratch[0],
-                            QUADRUPLE_TAPS,
-                        )
-                    }
-                };
-                *outp = self
-                    .scratch
+    pub fn process(&mut self) {
+        let nslice = 2 * (CHUNK_SIZE) / (self.channels as usize);
+        self.inp_scratch
+            .chunks_mut(nslice)
+            .zip((0..self.channels / 2).map(|ind| {
+                self.state.buffer[ind as usize..]
                     .iter()
-                    .fold(Complex::zero(), |acc, elem| acc + elem)
+                    .step_by((self.channels / 2) as usize)
+            }))
+            .for_each(|(x, y)| {
+                y.into_iter().zip(x).for_each(|(yl, xl)| *xl = *yl);
             });
+        self.inp_scratch
+            .chunks_mut((2 * CHUNK_SIZE / (self.channels as usize)))
+            .for_each(|chunk| {
+                self.fft_initial
+                    .process_with_scratch(chunk, &mut self.fft_scratch)
+            });
+        self.filter
+            .iter()
+            .zip(self.inp_scratch.iter().chain(self.inp_scratch.iter()))
+            .zip(self.filter_scratch.iter_mut())
+            .for_each(|((filter, input), output)| *output = input * filter);
 
-        self.fft
-            .process_with_scratch(&mut output[..self.channels], &mut self.scratch);
-
-        self.channels
-    }
-
-    // pub fn dump_state(&mut self) {
-    //     self.state.iter_mut().enumerate().for_each(|(ind, ring)| {
-    //         ring.inner_iter().enumerate().for_each(|(ind_, item)| {
-    //             self.chunk_fft_input[ind * CHUNK_SIZE + ind_] =
-    //                 (*item) / (Complex::new((CHUNK_SIZE * self.channels) as f32, 0.0))
-    //         })
-    //     })
-    // }
-    // pub fn process_all(
-    //     &mut self,
-    //     plans: ChannelizationPlans<CHUNK_SIZE>,
-    // ) {
-    //     self.dump_state();
-    //     // println!("dumping state: {:?}", now.elapsed());
-
-    //     unsafe { fftwf_execute(plans.forward_plan) };
-    //     self.chunk_fft_output
-    //         .iter_mut()
-    //         .zip(self.conv_coeff.iter())
-    //         .zip(self.chunk_fft_input.iter())
-    //         .for_each(|((out, coeff), inp)| *out = inp * coeff);
-    //     let now = Instant::now();
-    //     // unsafe { fftwf_execute(plans.reverse_plan) };
-    //     unsafe { fftwf_execute(plans.down_convert_plan) };
-    //     println!("other ffts: {:?}", now.elapsed());
-
-    // }
-
-    /// Resets the state of this channelizer
-    pub fn reset(&mut self) {
-        for ring in self.state.iter_mut() {
-            ring.reset();
-        }
+        self.filter_scratch
+            .chunks_mut((2 * CHUNK_SIZE / (self.channels as usize)))
+            .for_each(|chunk| {
+                self.fft_inverse
+                    .process_with_scratch(chunk, &mut self.fft_scratch)
+            });
+        (0..nslice).for_each(|ind| {
+            self.filter_scratch[ind..]
+                .iter()
+                .step_by(nslice as usize)
+                .map(|x| x.clone())
+                .zip(self.output_scratch.iter_mut())
+                .for_each(|(y, z)| *z = y);
+            self.fft_downconvert
+                .process_with_scratch(&mut self.output_scratch, &mut self.downconvert_fft_scratch);
+            self.output[ind..]
+                .iter_mut()
+                .step_by(nslice as usize)
+                .zip(self.output_scratch.iter())
+                .for_each(|(o_el, w_elem)| *o_el = *w_elem);
+        });
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::mpsc::channel;
-
     use super::*;
     use num::Zero;
-    use rayon::prelude::*;
 
     const CHANNELS: usize = 1024;
-    const TWICE_TAPS: usize = 128;
-    const QUADRUPLE_TAPS: usize = 64;
-    const CHUNK_SIZE: usize = 8192;
-    const NTIMES: usize = 20;
-    const INPUT_SIGNAL: [Complex<f32>; CHANNELS / 2] = [Complex::new(1.0, 0.0); CHANNELS / 2];
-    // const CHUNK_SIZE: usize = 64;
+    const CHUNK_SIZE: usize = 8192*2;
+    const HOP_SIZE: usize = 512;
+    const TWICE_TAPS: usize = 32;
 
     #[test]
     fn state_timing() {
-        let mut ring = Ring::<Complex<f32>, CHUNK_SIZE>::new();
-        let mut state = vec![Ring::<Complex<f32>, CHUNK_SIZE>::new(); CHANNELS / 2];
-        let mut output = vec![[Complex::<f32>::zero(); CHUNK_SIZE]; CHANNELS / 2];
-        let samples = vec![Complex::<f32>::new(1.1, 1.2); CHUNK_SIZE];
-        for ring in &mut state {
-            for element in &samples {
-                ring.add(*element);
-            }
-        }
-        // let mut lhs = [Complex::<f32>::new(1.0, 1.3);TWICE_TAPS];
-        // let mut rhs = [7.2 as f32;QUADRUPLE_TAPS];
-        // let mut prod = [Complex::<f32>::new(1.0, 1.3);TWICE_TAPS];
-        let now = Instant::now();
+        // let howmany = 1;
+        let NTIMES = 100 as usize;
+        let mut channelizer =
+            StreamingChannelizer::<CHUNK_SIZE, TWICE_TAPS, HOP_SIZE>::new(CHANNELS as i32);
 
-        // Takes 906 us to do state dump.
+        // let mut samples = vec![Complex::<f32>::zero(); CHUNK_SIZE];
+        let mut others = vec![Complex::<f32>::zero(); CHUNK_SIZE];
+
+        let now = Instant::now();
         for _ in 0..NTIMES {
-        state
-            .iter()
-            .zip(output.iter_mut())
-            .for_each(|(ring, output_arr)| {
-                ring.inner_iter()
-                    .zip(output_arr.iter_mut())
-                    .for_each(|(ring_element, output_arr_elem)| *output_arr_elem = *ring_element)
-            });
+            channelizer.add(&others);
+            channelizer.process();
         }
-        // Takes 158 us on average to do intrinsic filter application.
-        //     for _ in 0..NTIMES
-        //     {
-        //     for ind in 0..CHANNELS
-        //     {
-        //         unsafe{filter_apply(&mut lhs[0], &mut rhs[0], &mut prod[0], QUADRUPLE_TAPS)};
-        //     }
-        // }
         println!("{:?}", now.elapsed().as_secs_f32() / (NTIMES as f32));
     }
-
-    // #[test]
-    // fn par_process() {
-    //     const INNER_LOOPS: usize = 10_000;
-    //     const CHUNKS: usize = 50;
-
-    //     let mut output = vec![[Complex::zero(); CHANNELS]; CHUNKS];
-    //     let mut channelizers = vec![Channelizer::<TWICE_TAPS>::new(CHANNELS); output.len()];
-
-    //     let now = std::time::Instant::now();
-    //     output
-    //         .par_iter_mut()
-    //         .zip(channelizers.par_iter_mut())
-    //         .for_each(|(output, channelizer)| {
-    //             for _ in 0..INNER_LOOPS {
-    //                 channelizer.add(&INPUT_SIGNAL);
-    //                 channelizer.process(output);
-    //             }
-    //         });
-    //     println!(
-    //         "time to process {:?} slices: {:?}",
-    //         INNER_LOOPS * CHUNKS,
-    //         now.elapsed()
-    //     );
-    //     println!("using {:?} taps, {:?} channels", TWICE_TAPS / 2, CHANNELS);
-    // }
-
-    // #[test]
-    // fn reset() {
-    //     let mut channelizer = Channelizer::<TWICE_TAPS>::new(CHANNELS);
-    //     let mut output = vec![Complex::zero(); CHANNELS];
-
-    //     channelizer.add(&INPUT_SIGNAL);
-    //     channelizer.process(&mut output);
-
-    //     let copy = output.clone();
-
-    //     channelizer.reset();
-    //     channelizer.add(&INPUT_SIGNAL);
-    //     channelizer.process(&mut output);
-
-    //     assert_eq!(copy, output);
-    // }
 }
