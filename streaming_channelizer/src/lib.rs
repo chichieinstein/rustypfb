@@ -14,13 +14,13 @@ fn kaiser_fn(ind: usize, nchannel: usize, nproto: usize) -> f32 {
 }
 
 /// The prototype filter to be used in the Polyphase channelizer.
-/// The fn_ptr argument is an option type that optionally contains a function pointer that points to a function taking as input
+/// The fn_ptr argument optionally contains a function pointer type taking as input
 /// the array index (as usize), number of channels (as usize) and number of taps per channel (as usize) and returns a float value
 ///
 /// Thus, the function should have a signature
 /// fn func(usize, usize, usize) -> f32
 ///
-/// If the fn_ptr argument is None, then the proto-type filter defaults to the product of Kaiser window and sinc with the given (ind, nchannels, ntaps) argument.
+/// If the fn_ptr argument is None, then the proto-type filter defaults to the product of a Kaiser window and sinc with the given (ind, nchannels, ntaps) argument.
 fn create_filter<const TAPS: usize>(
     channels: usize,
     slice: usize,
