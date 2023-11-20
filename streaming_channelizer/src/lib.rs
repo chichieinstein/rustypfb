@@ -160,7 +160,7 @@ impl<const CHUNK_SIZE: usize, const TAPS: usize, const HOP_SIZE: usize>
     /// output, therefore, CHUNK_SIZE in typical cases will be small : less than 50K samples at a time.
     /// With such small number of samples, data parallelism (either with Rayon, or with a custom Thread Pool) cannot be achieved, as the overhead of 
     /// wrapping inputs in Mutexes and then obtaining locks in parallel threads is much larger than any 
-    /// gain in parallelism. Therefore, this function is restricted to one core.
+    /// gain with parallelism. Therefore, this function is restricted to one core.
     pub fn process(&mut self, output: &mut [Complex<f32>]) {
         let nslice = (CHUNK_SIZE) / (self.channels as usize);
         self.input
