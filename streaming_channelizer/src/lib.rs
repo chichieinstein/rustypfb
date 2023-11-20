@@ -49,7 +49,7 @@ fn create_filter<const TAPS: usize>(
 /// The generic argument CHUNK_SIZE refers to the size of input that the channelizer processes in one shot.
 /// The generic argument HOP_SIZE controls the amount of overlap that the user wants to maintain between successive inputs.
 /// CHUNK_SIZE - HOP_SIZE samples will be common between successive input chunks.
-/// The first call to add() after calling reset() on a ChannState instance will expect CHUNK_SIZE samples, and all memory of previous chunks will be lost on the output size.
+/// The first call to add() after calling reset() on a ChannState instance will expect CHUNK_SIZE samples, and all memory of previous chunks will be lost on the output side.
 #[derive(Copy, Clone, Debug)]
 struct ChannState<T, const CHUNK_SIZE: usize, const HOP_SIZE: usize> {
     buffer: [T; CHUNK_SIZE],
