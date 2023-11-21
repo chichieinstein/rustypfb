@@ -3,7 +3,7 @@ use num::{Complex, Zero};
 use rustfft::{Fft, FftPlanner};
 use std::sync::Arc;
 
-/// Default proto-type filter based on the Kaiser window, with kbeta=10.0
+/// Default prototype filter based on the Kaiser window, with kbeta=10.0
 fn kaiser_fn(ind: usize, nchannel: usize, nproto: usize) -> f32 {
     let ind_arg = ind as f32;
     let arg = -((nproto / 2) as f32) + (ind_arg + 1.0) / (nchannel as f32);
@@ -163,6 +163,8 @@ impl<const CHUNK_SIZE: usize, const TAPS: usize, const HOP_SIZE: usize>
     /// gain with parallelism. Therefore, this function is restricted to one core.
     pub fn process(&mut self, output: &mut [Complex<f32>]) {
         let nslice = (CHUNK_SIZE) / (self.channels as usize);
+
+        // Separate the input into different polyphase components. (number of rows = nchannels)
         self.input
             .chunks_mut(nslice)
             .zip((0..self.channels).map(|ind| {
@@ -173,24 +175,31 @@ impl<const CHUNK_SIZE: usize, const TAPS: usize, const HOP_SIZE: usize>
             .for_each(|(x, y)| {
                 y.into_iter().zip(x).for_each(|(yl, xl)| *xl = *yl);
             });
+        
+        // Take FFT of each channel.
         self.input
             .chunks_mut(CHUNK_SIZE / (self.channels as usize))
             .for_each(|chunk| {
                 self.fft_initial
                     .process_with_scratch(chunk, &mut self.initial_fft_scratch)
             });
+        
+        // Multiply by the FFT of the filter coefficients. This is the filter application step.
         self.filter
             .iter()
             .zip(self.input.iter())
             .zip(self.filter_output.iter_mut())
             .for_each(|((filter, input), output)| *output = input * filter);
 
+        // Take inverse FFT in each channel. This completes convolution with each filter component.
         self.filter_output
             .chunks_mut(CHUNK_SIZE / (self.channels as usize))
             .for_each(|chunk| {
                 self.fft_inverse
                     .process_with_scratch(chunk, &mut self.initial_fft_scratch);
             });
+        
+        // Take inverse FFT for downconversions.
         (0..nslice).for_each(|ind| {
             self.filter_output[ind..]
                 .iter()
@@ -205,6 +214,8 @@ impl<const CHUNK_SIZE: usize, const TAPS: usize, const HOP_SIZE: usize>
                 .zip(self.output_scratch.iter())
                 .for_each(|(o_el, w_elem)| *o_el = *w_elem);
         });
+
+        // Copy to output
         output.clone_from_slice(&self.output);
     }
 }
@@ -217,8 +228,8 @@ mod tests {
     use std::time::Instant;
 
     const CHANNELS: usize = 1024;
-    const CHUNK_SIZE: usize = 8192 * 2;
-    const HOP_SIZE: usize = 512;
+    const CHUNK_SIZE: usize = 8192*2;
+    const HOP_SIZE: usize = 1024;
     const TAPS: usize = 16;
 
     #[test]
