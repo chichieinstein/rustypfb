@@ -86,7 +86,7 @@ impl<T: Default + Copy, const CHUNK_SIZE: usize, const HOP_SIZE: usize>
 /// CHUNK_SIZE is the size of input chunks.
 /// The TAPS argument sets the number of prototype filter taps per channel.
 /// The HOP_SIZE argument sets the overlap between successive chunks.
-/// 
+///
 /// HOP_SIZE >= channels. If these are equal, we get slice by slice update in each channel.
 pub struct StreamingMaximalChannelizer<
     const CHUNK_SIZE: usize,
@@ -153,13 +153,13 @@ impl<const CHUNK_SIZE: usize, const TAPS: usize, const HOP_SIZE: usize>
     }
 
     /// Process the input. The Channelizer is maximally decimating, and therefore,
-    /// the number of input samples is the same as the number of output samples, and 
+    /// the number of input samples is the same as the number of output samples, and
     /// all channels are disjoint.
-    /// 
-    /// The main aim of the Streaming Channelizer is to minimize the latency between input and 
+    ///
+    /// The aim of the Streaming Channelizer is to minimize latency between input and
     /// output, therefore, CHUNK_SIZE in typical cases will be small : less than 50K samples at a time.
-    /// With such small number of samples, data parallelism (either with Rayon, or with a custom Thread Pool) cannot be achieved, as the overhead of 
-    /// wrapping inputs in Mutexes and then obtaining locks in parallel threads is much larger than any 
+    /// With such small number of samples, data parallelism (either with Rayon, or with a custom Thread Pool) cannot be achieved, as the overhead of
+    /// wrapping inputs in Mutexes and then obtaining locks in parallel threads is much larger than any
     /// gain with parallelism. Therefore, this function is restricted to one core.
     pub fn process(&mut self, output: &mut [Complex<f32>]) {
         let nslice = (CHUNK_SIZE) / (self.channels as usize);
@@ -175,15 +175,15 @@ impl<const CHUNK_SIZE: usize, const TAPS: usize, const HOP_SIZE: usize>
             .for_each(|(x, y)| {
                 y.into_iter().zip(x).for_each(|(yl, xl)| *xl = *yl);
             });
-        
+
         // Take FFT of each channel.
         self.input
-            .chunks_mut(CHUNK_SIZE / (self.channels as usize))
+            .chunks_mut(nslice)
             .for_each(|chunk| {
                 self.fft_initial
                     .process_with_scratch(chunk, &mut self.initial_fft_scratch)
             });
-        
+
         // Multiply by the FFT of the filter coefficients. This is the filter application step.
         self.filter
             .iter()
@@ -193,12 +193,12 @@ impl<const CHUNK_SIZE: usize, const TAPS: usize, const HOP_SIZE: usize>
 
         // Take inverse FFT in each channel. This completes convolution with each filter component.
         self.filter_output
-            .chunks_mut(CHUNK_SIZE / (self.channels as usize))
+            .chunks_mut(nslice)
             .for_each(|chunk| {
                 self.fft_inverse
                     .process_with_scratch(chunk, &mut self.initial_fft_scratch);
             });
-        
+
         // Take inverse FFT for downconversions.
         (0..nslice).for_each(|ind| {
             self.filter_output[ind..]
@@ -228,8 +228,8 @@ mod tests {
     use std::time::Instant;
 
     const CHANNELS: usize = 1024;
-    const CHUNK_SIZE: usize = 8192*2;
-    const HOP_SIZE: usize = 1024;
+    const CHUNK_SIZE: usize = 8192 * 2;
+    const HOP_SIZE: usize = 1;
     const TAPS: usize = 16;
 
     #[test]
