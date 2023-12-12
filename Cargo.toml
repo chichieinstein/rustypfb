@@ -2,6 +2,7 @@
 resolver = "2"
 members = ["streaming_channelizer", "offlinepfb-sys", "channelizer"]
 default-members = ["streaming_channelizer", "offlinepfb-sys", "channelizer"]
+ruststft = { git = "ssh://git@github.com/ucsdwcsng/ruststft.git", branch = "main" }
 
 [workspace.package]
 edition = "2021"

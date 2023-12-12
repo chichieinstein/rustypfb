@@ -3,6 +3,7 @@ use bessel_fun_sys::bessel_func;
 use num::{Complex, Zero};
 use rustfft::{Fft, FftPlanner};
 
+use ruststft::FilterBank;
 use std::iter::Chain;
 use std::slice::Iter;
 use std::sync::Arc;
@@ -120,6 +121,15 @@ impl<const TWICE_TAPS: usize> Channelizer<TWICE_TAPS> {
         self.channels / 2
     }
 
+    /// Resets the state of this channelizer
+    pub fn reset(&mut self) {
+        for ring in self.state.iter_mut() {
+            ring.reset();
+        }
+    }
+}
+
+impl<const TWICE_TAPS: usize> FilterBank for Channelizer<TWICE_TAPS> {
     /// Produce a channelizer slice from this channelizer's current state
     ///
     /// The given output slice is expected to be at least of size equal to [`channels`]. Any
@@ -130,7 +140,7 @@ impl<const TWICE_TAPS: usize> Channelizer<TWICE_TAPS> {
     /// `process` will panic if the length of the output is less than [`channels`].
     ///
     /// [`channels`]: Self::channels()
-    pub fn process(&mut self, output: &mut [Complex<f32>]) -> usize {
+    fn process(&mut self, output: &mut [Complex<f32>]) -> usize {
         output[..self.channels]
             .iter_mut()
             .zip(self.state.iter().chain(self.state.iter()))
@@ -147,13 +157,6 @@ impl<const TWICE_TAPS: usize> Channelizer<TWICE_TAPS> {
             .process_with_scratch(&mut output[..self.channels], &mut self.scratch);
 
         self.channels
-    }
-
-    /// Resets the state of this channelizer
-    pub fn reset(&mut self) {
-        for ring in self.state.iter_mut() {
-            ring.reset();
-        }
     }
 }
 
