@@ -1,3 +1,17 @@
+The Rust call signatures for the channelizer are self-documented in the ``channelizer`` crate here: https://github.com/ucsdwcsng/rustypfb/tree/main/channelizer. The ``examples`` directory there shows how both the forward and revert work.
+
+The forward channelizer process function has been benchmarked to attain a throughput of ``~763 Megasamples per second`` on a single NVIDIA A10 GPU core. 
+
+In order to check things are running as required, the test written in the root of the ``channelizer`` crate creates channelized output. To do this, go to ``channelizer`` and just run  
+
+``cargo test``
+
+One can visualize the output channogram by simply running the ``pytest_lib_visual.py`` script. 
+
+To test that the reverse channelization is working as expected, run the ``revert_example.rs`` inside examples. To visualize the result, run ``pytest_revert.py`` to generate the png files linked here.
+
+All dependencies are listed in the Dockerfile included in the repo.
+
 This is an implementation of a Non-maximally decimated Polyphase Filter Bank (PFB) which is callable from the Rust programming Language. This filter bank supports perfect reconstruction. The backend is written in CUDA C++ for real time deployment. 
 
 The image below illustrates the frequency responses of both the analysis and synthesis prototype filters used in the filter bank. The analysis filter is a simple Nyquist filter, and the passband of the synthesis filter is designed to completely cover the transition band of the analysis filter. This ensures distortion free reconstruction.
@@ -19,18 +33,4 @@ Here is the same comparison for the case where three different DSSS transmission
 ![Image Alt Text](/docs/DSSS.png)
 
 In both the cases, we see no aliasing artifacts, and no distortions in the reverted spectrum. By definition, this is perfect reconstruction!
-
-The Rust call signatures are self-documented in the ``channelizer`` crate. The ``examples`` directory here shows how both the forward and revert work.
-
-The forward channelizer process function has been benchmarked to attain a throughput of ``~763 Megasamples per second`` on a single NVIDIA A10 GPU core. 
-
-In order to check things are running as required, the test written in the root of the ``channelizer`` crate creates channelized output. To do this, go to ``channelizer`` and just run  
-
-``cargo test``
-
-One can visualize the output channogram by simply running the ``pytest_lib_visual.py`` script. 
-
-To test that the reverse channelization is working as expected, run the ``revert_example.rs`` inside examples. To visualize the result, run ``pytest_revert.py`` to generate the png files linked here.
-
-All dependencies are listed in the Dockerfile included in the repo.
 
