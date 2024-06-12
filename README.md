@@ -24,11 +24,13 @@ The Rust call signatures are self-documented in the ``channelizer`` crate. The `
 
 The forward channelizer process function has been benchmarked to attain a throughput of ``~763 Megasamples per second`` on a single NVIDIA A10 GPU core. 
 
-In order to check things are running as required, the test written in the root of the ``channelizer`` crate creates channelized output. One can visualize the output channogram by running the ``pytest_lib_visual.py`` script. 
+In order to check things are running as required, the test written in the root of the ``channelizer`` crate creates channelized output. To do this, go to ``channelizer`` and just run  
+
+``cargo test``
+
+One can visualize the output channogram by simply running the ``pytest_lib_visual.py`` script. 
 
 To test that the reverse channelization is working as expected, run the ``revert_example.rs`` inside examples. To visualize the result, run ``pytest_revert.py`` to generate the png files linked here.
 
 All dependencies are listed in the Dockerfile included in the repo.
-
-Happy channelizing!
 
