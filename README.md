@@ -1,14 +1,10 @@
-The Rust call signatures for the channelizer are self-documented in the [``channelizer`` crate](https://github.com/ucsdwcsng/rustypfb/tree/main/channelizer). The ``examples`` directory there shows how both the forward and revert work.
+The Rust call signatures for the channelizer are self-documented by usage in the folder [``channelizer`` crate](https://github.com/ucsdwcsng/rustypfb/tree/main/channelizer). The ``examples`` there shows how both the forward and revert work.
 
-The forward channelizer process function has been benchmarked to attain a throughput of ``~763 Megasamples per second`` on a single NVIDIA A10 GPU core. 
-
-In order to check things are running as required, the test written in the root of the ``channelizer`` crate creates channelized output. To do this, go to ``channelizer`` and just run  
+The forward channelizer process function has been benchmarked to attain a throughput of ``~763 Megasamples per second`` on a single NVIDIA A10 GPU core. In order to check things are running as required, the test written in the root of the ``channelizer`` crate creates channelized output. To do this, go to ``channelizer`` and just run  
 
 ``cargo test``
 
-One can visualize the output channogram by simply running the ``pytest_lib_visual.py`` script. 
-
-To test that the reverse channelization is working as expected, run the ``revert_example.rs`` inside examples. To visualize the result, run ``pytest_revert.py`` to generate the png files linked here.
+One can visualize the output channogram by simply running the ``pytest_lib_visual.py`` script. To test that the reverse channelization is working as expected, run the ``revert_example.rs`` inside examples. To visualize the result, run ``pytest_revert.py`` to generate the png files linked here.
 
 All dependencies are listed in the Dockerfile included in the repo.
 
