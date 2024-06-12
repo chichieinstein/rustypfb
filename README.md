@@ -1,4 +1,4 @@
-The Rust call signatures for the channelizer are self-documented in the ``channelizer`` crate here: https://github.com/ucsdwcsng/rustypfb/tree/main/channelizer. The ``examples`` directory there shows how both the forward and revert work.
+The Rust call signatures for the channelizer are self-documented in the [``channelizer`` crate](https://github.com/ucsdwcsng/rustypfb/tree/main/channelizer). The ``examples`` directory there shows how both the forward and revert work.
 
 The forward channelizer process function has been benchmarked to attain a throughput of ``~763 Megasamples per second`` on a single NVIDIA A10 GPU core. 
 
