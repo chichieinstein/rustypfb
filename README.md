@@ -18,16 +18,16 @@ For this milestone, we want to show that our polyphase filter bank achieves grea
 
 ``cargo run --example three_tone_test`` 
 
-This command instructs cargo to run the example [rust code here](channelizer/examples/three_tone_test.rs). This performs two tasks :
+This command instructs cargo to run the example [rust code here](channelizer/examples/three_tone_test.rs). This performs two tasks, namely,
 
     1. creates iq for the following test scenario: three narrow band tones are generated, and one of them is **35dB** weaker than the other two. 
-
     2. Processes the iq generated in the previous step with the polyphase filter bank over 1024 channels and stores the channelized iq.
 
 3. Finally, to visualize the channogram, channpsd and their superior performance compared to spectrogram and psd, run the python script ``tone_test_spectrogram.py`` in [here](test_scripts). This will generate two ``png`` files, namely
 
     1. **channogram.png** 
     2. **spectrogram.png** 
+
 in a folder named ``images``. These images will illustrate the achieved improved dynamic range with the channelizer.
 
 
