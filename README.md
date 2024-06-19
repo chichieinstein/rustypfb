@@ -18,10 +18,9 @@ For this milestone, we want to show that our polyphase filter bank achieves grea
 
 ``cargo run --example three_tone_test`` 
 
-This command instructs cargo to run the example [rust code here](channelizer/examples/three_tone_test.rs). This performs two tasks, namely,
-
-    1. creates iq for the following test scenario: three narrow band tones are generated, and one of them is **35dB** weaker than the other two. 
-    2. Processes the iq generated in the previous step with the polyphase filter bank over 1024 channels and stores the channelized iq.
+This command instructs cargo to run the example [rust code here](channelizer/examples/three_tone_test.rs). We are concerned with the three tone test scenario, where we have three narrow band tones, and one of them is **35dB** weaker than the other two. The rust file performs two tasks, namely,
+    1. creates iq for the three tone test scenario.
+    2. channelized the iq in the previous step into 1024 channels
 
 3. Finally, to visualize the channogram, channpsd and their superior performance compared to spectrogram and psd, run the python script ``tone_test_spectrogram.py`` in [here](test_scripts). This will generate two ``png`` files, namely
 
