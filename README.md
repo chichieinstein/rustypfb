@@ -28,7 +28,7 @@ This command instructs cargo to run the example [rust code here](channelizer/exa
     1. **channogram.png** 
     2. **spectrogram.png** 
 
-in a folder named ``images``. These images will illustrate the achieved improved dynamic range with the channelizer.
+in a folder named ``images``. These images will illustrate the achieved improved dynamic range with the channelizer. 
 
 
 
