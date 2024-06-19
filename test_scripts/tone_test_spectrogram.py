@@ -30,17 +30,17 @@ if __name__ == "__main__":
     Nwind = 1024 
     
     iq = np.fromfile("../iq/tones.32cf", dtype="complex64")
-    f, psd = sig.welch(iq, window=("kaiser", 10.0), nperseg=Nwind, noverlap=Nover, nfft=Nfft, return_onesided=False)
-    fsp, t, spec = sig.spectrogram(iq, window=("kaiser", 10.0), nperseg=Nwind, noverlap=Nover, nfft=Nfft, return_onesided=False)
+    f, psd = sig.welch(iq, fs=100.0, window=("kaiser", 10.0), nperseg=Nwind, noverlap=Nover, nfft=Nfft, return_onesided=False)
+    fsp, t, spec = sig.spectrogram(iq, fs=100.0, window=("kaiser", 10.0), nperseg=Nwind, noverlap=Nover, nfft=Nfft, return_onesided=False)
     new_fig, new_ax = plt.subplots(2,1,sharex=True)
     reshaped_spec = np.fft.fftshift(np.abs(spec), axes=0)[::-1][400:650, :].transpose()
-    c = new_ax[0].pcolor(reshaped_spec, vmax=300)
+    c = new_ax[0].pcolor(np.fft.fftshift(fsp)[400:650], t, reshaped_spec, vmax=10)
     reduced_psd = np.log10(np.fft.fftshift(psd) / np.max(psd))
-    new_ax[1].plot(reduced_psd[::-1][400:650])
+    new_ax[1].plot(np.fft.fftshift(f)[400:650], reduced_psd[::-1][400:650])
     new_ax[0].axes.set_aspect('auto')
     new_ax[0].axes.set_ylabel("sample count")
     new_ax[1].axes.set_aspect('auto')
-    new_ax[1].axes.set_xlabel("Channel index")
+    new_ax[1].axes.set_xlabel("Frequency (MHz)")
     new_ax[1].axes.set_ylabel("Power in dB")
 
     new_fig.tight_layout()
