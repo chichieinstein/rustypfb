@@ -71,7 +71,10 @@ fn main() {
     // Transfer
     revert_output_buffer.dump(&mut revert_output_cpu);
 
-    let mut dsss_file = std::fs::File::create("dsss_chann_reverted_output.32cf").unwrap();
+    let path = std::path::Path::new("./iq/dsss_chann_reverted_output.32cf");
+    let prefix = path.parent().unwrap();
+    std::fs::create_dir_all(prefix).unwrap();
+    let mut dsss_file = std::fs::File::create(path).unwrap();
 
     let dsss_outp_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut revert_output_cpu);
 
@@ -79,17 +82,19 @@ fn main() {
 
     // Reset input
     input_vec.iter_mut().for_each(|x| *x = 0.0);
-    input_vec_complex.iter_mut().for_each(|x| *x = Complex32::zero());
+    input_vec_complex
+        .iter_mut()
+        .for_each(|x| *x = Complex32::zero());
 
-     /*
-      * LPI combined
-      */
+    /*
+     * LPI combined
+     */
     let mut lpi_file = std::fs::File::open("./busyBand/lpi_combined.32cf").unwrap();
     let mut lpi_samples_bytes = Vec::new();
     let _ = lpi_file.read_to_end(&mut lpi_samples_bytes);
     let lpi_samples: &[f32] = bytemuck::cast_slice(&lpi_samples_bytes);
     let lpi_samples_complex: &[Complex<f32>] = bytemuck::cast_slice(&lpi_samples_bytes);
-    
+
     input_vec[..lpi_samples.len()].clone_from_slice(lpi_samples);
     input_vec_complex[..lpi_samples_complex.len()].clone_from_slice(lpi_samples_complex);
 
@@ -98,11 +103,11 @@ fn main() {
 
     // Revert
     chann_obj.revert(&mut channelized_output_buffer, &mut revert_output_buffer);
-    
+
     // Transfer
     revert_output_buffer.dump(&mut revert_output_cpu);
 
-    let mut lpi_file = std::fs::File::create("./lpi_chann_reverted_output.32cf").unwrap();
+    let mut lpi_file = std::fs::File::create("./iq/lpi_chann_reverted_output.32cf").unwrap();
     let lpi_outp_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut revert_output_cpu);
     let _ = lpi_file.write_all(lpi_outp_slice);
 }

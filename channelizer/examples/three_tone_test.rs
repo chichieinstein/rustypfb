@@ -34,7 +34,7 @@ fn main() {
     let fc1: f32 = 0.5e6;
     let fc2: f32 = 1.25e6;
     let fc3: f32 = 0.85e6;
-    let a2_db: f32 = -100.0;
+    let a2_db: f32 = -35.0;
     let fs: f32 = 100e6;
 
     let mut chann_obj = ChunkChannelizer::new(filter.as_mut_slice(), ntaps, nch, nslice);
@@ -53,14 +53,37 @@ fn main() {
             (2.0 * PI * fc3 * (ind as f32) / fs).cos(),
             (-2.0 * PI * fc3 * (ind as f32) / fs).sin(),
         ) + Complex::new(
-            (2.0 * PI * fc2 * (ind as f32) / fs).cos() * 10.0f32.powf(a2_db),
-            (-2.0 * PI * fc2 * (ind as f32) / fs).sin() * 10.0f32.powf(a2_db),
+            (2.0 * PI * fc2 * (ind as f32) / fs).cos() * 10.0f32.powf(a2_db / 20.0),
+            (-2.0 * PI * fc2 * (ind as f32) / fs).sin() * 10.0f32.powf(a2_db / 20.0),
         )
     });
 
-    let mut tone_file = std::fs::File::create("tones.32cf").unwrap();
+    let path = std::path::Path::new("./iq/tones.32cf");
+    let prefix = path.parent().unwrap();
+    std::fs::create_dir_all(prefix).unwrap();
+    let mut tone_file = std::fs::File::create(path).unwrap();
 
     let tone_outp_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut input_vec);
 
     let _ = tone_file.write_all(tone_outp_slice);
+
+    let mut inp_vec_float = vec![0.0 as f32; (nch * nslice) as usize];
+
+    let inp_vec_cmp: &[f32] = bytemuck::cast_slice(&input_vec);
+
+    inp_vec_float[0..(nch * nslice) as usize].clone_from_slice(inp_vec_cmp);
+
+    // Setup the output buffer
+    let mut output_buffer = DevicePtr::<Complex<f32>>::new(nch * nslice);
+
+    // Setup the CPU output buffer
+    let mut output_cpu = vec![Complex::<f32>::zero(); (nch * nslice) as usize];
+
+    chann_obj.process(&mut inp_vec_float, &mut output_buffer);
+
+    output_buffer.dump(&mut output_cpu);
+
+    let mut chann_file = std::fs::File::create("./iq/tone_channelized.32cf").unwrap();
+    let tone_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut output_cpu);
+    let _ = chann_file.write_all(tone_slice);
 }

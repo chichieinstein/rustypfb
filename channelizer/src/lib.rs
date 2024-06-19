@@ -5,19 +5,17 @@ use libm::sinf;
 use libm::sqrtf;
 use num::Complex;
 use offlinepfb_sys::{
-    chann_create, chann_destroy, chann_process, Chann,
-    chann_set_revert_filter, chann_revert,
+    chann_create, chann_destroy, chann_process, chann_revert, chann_set_revert_filter, Chann,
 };
-use rustdevice::{DevicePtr, compute_bessel};
-use std::io::Read;
+use rustdevice::{compute_bessel, DevicePtr};
 use std::f32::consts::PI;
-
+use std::io::Read;
 
 pub fn sinc(inp: f32) -> f32 {
     if inp == 0.0 {
         1.0
     } else {
-        (PI*inp).sin() / (PI*inp)
+        (PI * inp).sin() / (PI * inp)
     }
 }
 
@@ -46,16 +44,18 @@ impl ChunkChannelizer {
         unsafe { chann_process(self.opaque_chann, inp.as_mut_ptr(), output.ptr) }
     }
 
-    pub fn revert(&mut self, inp: &mut DevicePtr<Complex<f32>>, output: &mut DevicePtr<Complex<f32>>)
-    {
-        unsafe{chann_revert(self.opaque_chann, inp.ptr, output.ptr)}
+    pub fn revert(
+        &mut self,
+        inp: &mut DevicePtr<Complex<f32>>,
+        output: &mut DevicePtr<Complex<f32>>,
+    ) {
+        unsafe { chann_revert(self.opaque_chann, inp.ptr, output.ptr) }
     }
 
-    pub fn set_revert_filter(&mut self, inp: &[f32])
-    {
+    pub fn set_revert_filter(&mut self, inp: &[f32]) {
         let mut complex_coeff_array: Vec<Complex<f32>> =
             inp.iter().map(|x| Complex::new(*x, 0.0)).collect();
-        unsafe{ chann_set_revert_filter(self.opaque_chann, complex_coeff_array.as_mut_ptr())}
+        unsafe { chann_set_revert_filter(self.opaque_chann, complex_coeff_array.as_mut_ptr()) }
     }
 }
 
@@ -88,20 +88,20 @@ mod tests {
                 let arg = float_taps + (y + 1.0) / chann_float;
                 let darg = (2.0 * y) / (chann_float * chann_proto) - 1.0;
                 let carg = kbeta * (1.0 - darg * darg).sqrt();
-                (compute_bessel(carg) / compute_bessel(kbeta) ) * sinc(arg)
+                (compute_bessel(carg) / compute_bessel(kbeta)) * sinc(arg)
             })
             .collect();
         let mut chann_obj = ChunkChannelizer::new(filter.as_mut_slice(), ntaps, nch, nslice);
 
         // Setup the output buffer
         let mut output_buffer = DevicePtr::<Complex<f32>>::new(nch * nslice);
-        
+
         // Setup the CPU output buffer
-        let mut output_cpu = vec![Complex::<f32>::zero(); (nch*nslice) as usize];
-        
+        let mut output_cpu = vec![Complex::<f32>::zero(); (nch * nslice) as usize];
+
         // Setup the input vector
-        let mut input_vec = vec![0.0 as f32; (nch*nslice) as usize];
-        
+        let mut input_vec = vec![0.0 as f32; (nch * nslice) as usize];
+
         /*
          * DSSS test
          */
@@ -117,15 +117,15 @@ mod tests {
         chann_obj.process(&mut input_vec, &mut output_buffer);
         // Transfer
         output_buffer.dump(&mut output_cpu);
-
-        let mut dsss_file = std::fs::File::create("../dsss_chann_output.32cf").unwrap();
+        let path_prefix = std::path::Path::new("../iq/dsss_chann_output.32cf");
+        let prefix = path_prefix.parent().unwrap();
+        std::fs::create_dir_all(prefix).unwrap();
+        let mut dsss_file = std::fs::File::create(path_prefix).unwrap();
         let dsss_outp_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut output_cpu);
         let _ = dsss_file.write_all(dsss_outp_slice);
 
-
         // Reset input
         input_vec.iter_mut().for_each(|x| *x = 0.0);
-
 
         /*
          * LPI combined
@@ -142,8 +142,9 @@ mod tests {
 
         // Transfer
         output_buffer.dump(&mut output_cpu);
+        let second_path_prefix = std::path::Path::new("../iq/lpi_chann_output.32cf");
 
-        let mut lpi_file = std::fs::File::create("../lpi_chann_output.32cf").unwrap();
+        let mut lpi_file = std::fs::File::create(second_path_prefix).unwrap();
         let lpi_outp_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut output_cpu);
         let _ = lpi_file.write_all(lpi_outp_slice);
     }
