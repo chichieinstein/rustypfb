@@ -1,0 +1,53 @@
+version: "3.9"
+services:
+  rustcuda:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: rust-cuda
+    container_name: rust-cuda
+    shm_size: '2048m'
+    networks:
+      - nw
+    devices:
+      - nvidia.com/gpu=0  
+
+    working_dir: "/root/ProjectDir"
+    command: ["tail", "-f", "/dev/null"]    # Specify the command to run when the container starts.
+
+  rustcuda-devel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: rust-cuda
+    container_name: rust-cuda
+    shm_size: '2048m'
+    volumes:
+      - "vscode-config:/root/.vscode-server:rw"
+      - ".:/root/rustycuda:rw"
+    networks:
+      - nw
+    ports:
+      - 127.0.0.1::5901
+    devices:
+      - nvidia.com/gpu=1      
+    deploy:
+      resources:
+        limits:
+          cpus: '48'
+          memory: 250G
+
+    working_dir: "/root/rustycuda"
+    command: ["tail", "-f", "/dev/null"]
+    cap_add:
+      - SYS_ADMIN
+
+
+
+
+volumes:
+  vscode-config:
+    driver: local
+networks:
+  nw:
+    driver: bridge
