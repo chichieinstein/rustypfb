@@ -8,10 +8,10 @@ if __name__ == "__main__":
     chann_iq = np.fromfile("../iq/tone_channelized.32cf", dtype="complex64")
 
     # Plot Channogram and ChannPsd
-    fig, ax = plt.subplots(2, 1, sharex=True) 
+    fig, ax = plt.subplots(2, 1) 
     reshaped_iq = np.abs(chann_iq).reshape((1024, -1))[400:650,150:].transpose()[:, ::-1]
     slice_dim = chann_iq.reshape(1024, -1).shape[1]
-    reduced_iq = np.sum(np.square(np.abs(chann_iq.reshape(1024, -1))[:, 150:]), axis=1) / slice_dim
+    reduced_iq = np.sum(np.square(np.abs(chann_iq.reshape(1024, -1))[550:, 150:]), axis=1) / slice_dim
     reduced_iq = 10*np.log10(reduced_iq / np.max(reduced_iq))
 
     c = ax[0].pcolor(50.0 - 100.0 * np.array([ind for ind in range(400, 650)][::-1]).astype("float32") / 1024, np.arange(reshaped_iq.shape[0]), reshaped_iq, vmax=80)
