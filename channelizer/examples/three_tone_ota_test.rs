@@ -51,9 +51,10 @@ fn main() {
     let fc2: f32 = 1.25e6;
     let fc3: f32 = 0.85e6;
 
-    let a2_db: f32 = -17.5;
-    let mut amplitude: f32 = 0.52;
+    let a2_db: f32 = -9.5;
+    let mut amplitude: f32 = 0.8;
     let fs: f32 = 5e6;
+    let rx_fs: f32 = 100e6;
 
     let mut chann_obj = ChunkChannelizer::new(filter.as_mut_slice(), ntaps, nch, nslice);
 
@@ -74,6 +75,22 @@ fn main() {
         )
     });
 
+    let mut synth_baseband = vec![Complex::zero() as Complex<f32>; (nch * nslice / 2) as usize];
+
+    synth_baseband.iter_mut().enumerate().for_each(|(ind, elem)| {
+        *elem = Complex::new(
+            amplitude * (2.0 * PI * fc1 * (ind as f32) / rx_fs).cos(),
+            amplitude * (-2.0 * PI * fc1 * (ind as f32) / rx_fs).sin(),
+        ) + Complex::new(
+            amplitude * (2.0 * PI * fc3 * (ind as f32) / rx_fs).cos(),
+            amplitude * (-2.0 * PI * fc3 * (ind as f32) / rx_fs).sin(),
+        ) 
+        + Complex::new(
+            amplitude * (2.0 * PI * fc2 * (ind as f32) / rx_fs).cos() * 10.0f32.powf(a2_db/10.0),
+            amplitude * (-2.0 * PI * fc2 * (ind as f32) / rx_fs).sin() * 10.0f32.powf(a2_db/10.0),
+        )
+    });
+
     let max_amp = baseband.iter()
         .map(|c| c.norm())
         .fold(0_f32, |max, amp| if amp > max { amp } else { max });
@@ -85,6 +102,7 @@ fn main() {
     let max_norm_amp = normalized_baseband.iter()
         .map(|c| c.norm())
         .fold(0_f32, |max, amp| if amp > max { amp } else { max });
+
 
     println!("Max amplitude: {}", max_norm_amp);
 
@@ -128,7 +146,7 @@ fn main() {
     // Configure the rx USRP
     rx.set_rx_antenna(RX_ANTENNA, rx_channel)
         .expect("Failed to set RX antenna");
-    rx.set_rx_sample_rate(fs.into(), rx_channel)
+    rx.set_rx_sample_rate(rx_fs.into(), rx_channel)
         .expect("Failed to set RX sample rate");
     rx.set_rx_frequency(&TuneRequest::with_frequency(radio_center_freq), rx_channel)
         .expect("Failed to set RX frequency");
@@ -207,15 +225,17 @@ fn main() {
     let prefix = path.parent().unwrap();
     std::fs::create_dir_all(prefix).unwrap();
     let mut tone_file = std::fs::File::create(path).unwrap();
-
     let tone_outp_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut input_vec);
-
     let _ = tone_file.write_all(tone_outp_slice);
 
+    let synthetic_path = std::path::Path::new("./iq/synthetic.32cf");
+    let mut synthetic_file = std::fs::File::create(synthetic_path).unwrap();
+    let synthetic_outp_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut synth_baseband);
+    let _ = synthetic_file.write_all(synthetic_outp_slice);
+
+    // OTA Channogram
     let mut inp_vec_float = vec![0.0 as f32; (nch * nslice) as usize];
-
     let inp_vec_cmp: &[f32] = bytemuck::cast_slice(&input_vec);
-
     inp_vec_float[0..(nch * nslice) as usize].clone_from_slice(inp_vec_cmp);
 
     // Setup the output buffer
@@ -225,12 +245,30 @@ fn main() {
     let mut output_cpu = vec![Complex::<f32>::zero(); (nch * nslice) as usize];
 
     chann_obj.process(&mut inp_vec_float, &mut output_buffer);
-
     output_buffer.dump(&mut output_cpu);
 
     let mut chann_file = std::fs::File::create("./iq/tone_channelized.32cf").unwrap();
     let tone_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut output_cpu);
     let _ = chann_file.write_all(tone_slice);
+
+    // Synthetic Channogram
+    let mut synth_inp_vec_float = vec![0.0 as f32; (nch * nslice) as usize];
+    let synth_inp_vec_cmp: &[f32] = bytemuck::cast_slice(&synth_baseband);
+    synth_inp_vec_float[0..(nch * nslice) as usize].clone_from_slice(synth_inp_vec_cmp);
+
+    // Setup the output buffer
+    let mut synth_output_buffer = DevicePtr::<Complex<f32>>::new(nch * nslice);
+
+    // Setup the CPU output buffer
+    let mut synth_output_cpu = vec![Complex::<f32>::zero(); (nch * nslice) as usize];
+
+    chann_obj.process(&mut synth_inp_vec_float, &mut synth_output_buffer);
+    synth_output_buffer.dump(&mut synth_output_cpu);
+
+    let mut synth_chann_file = std::fs::File::create("./iq/synthetic_channelized.32cf").unwrap();
+    let synth_tone_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut synth_output_cpu);
+    let _ = synth_chann_file.write_all(synth_tone_slice);
+
 }
 
 use std::ops::{Add, Div, Mul, Sub};
