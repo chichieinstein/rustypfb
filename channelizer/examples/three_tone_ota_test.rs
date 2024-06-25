@@ -1,5 +1,4 @@
 pub use channelizer::{sinc, ChunkChannelizer};
-use flume;
 use num::{Complex, Zero};
 use num_complex::Complex32;
 pub use rustdevice::{compute_bessel, DevicePtr};
