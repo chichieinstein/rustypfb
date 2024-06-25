@@ -26,19 +26,25 @@ if __name__ == "__main__":
     fs = 100.0
     synth_fs = 5.0
     start_index = 490
-    stop_index = 512
+    stop_index = 530
     
-    ax[0].plot(fs / 2 - fs * np.array([ind for ind in range(start_index, stop_index)][::-1]).astype("float32") / 1024, reduced_iq[start_index:stop_index][::-1])
-    ax[0].plot(fs / 2 - fs * np.array([ind for ind in range(start_index, stop_index)][::-1]).astype("float32") / 1024, synth_reduced_iq[start_index:stop_index][::-1], linestyle="--")
+    ax[0].plot(fs / 2 - fs * np.array([ind for ind in range(start_index, stop_index)][::-1]).astype("float32") / 1024, reduced_iq[start_index:stop_index][::-1], label="ota")
+    ax[0].plot(fs / 2 - fs * np.array([ind for ind in range(start_index, stop_index)][::-1]).astype("float32") / 1024, synth_reduced_iq[start_index:stop_index][::-1], linestyle="--", label="synthetic")
+    ax[0].plot([0.5, 0.5], [-60, 0], linestyle="--", color="black", label="true tone")
+    ax[0].plot([0.85, 0.85], [-60, 0], linestyle="--", color="black")
+    ax[0].plot([1.26, 1.26], [-60, 0], linestyle="--", color="black")
     #ax[1].plot(2.5 - 5.0 * np.array([ind for ind in range(0, 1024)][::-1]).astype("float32") / 1024, reduced_iq[::-1])
     # ax[0].axes.set_aspect('auto')
     # ax[0].axes.set_ylabel("sample count")
     ax[0].axes.set_aspect('auto')
-    ax[0].axes.set_xlabel("Frequency (MHz)")
+    # ax[0].axes.set_xlabel("Frequency (MHz)")
     ax[0].axes.set_ylabel("Power in dB")
     ax[0].axes.set_ylim(-60.0, 0)
-    ax[0].axes.minorticks_on()
-    ax[0].axes.grid(axis="y", which="both")
+    # ax[0].axes.minorticks_on()
+    ax[0].axes.grid(axis="y", which="major")
+    ax[0].axes.set_xlim(0.125, 2.0)
+    ax[0].axes.legend(loc="best")
+    ax[0].axes.set_title("Channogram")
     #ax[1].axes.set_aspect('auto')
     #ax[1].axes.set_xlabel("Frequency (MHz)")
     #ax[1].axes.set_ylabel("Power in dB")
@@ -51,7 +57,7 @@ if __name__ == "__main__":
     Nover = 512 
     Nwind = 1024 
     
-    start_fft_index = 505
+    start_fft_index = 512
     stop_fft_index = 534
     iq = np.fromfile("../iq/tones.32cf", dtype="complex64")
     f, psd = sig.welch(iq, fs=fs, window=("kaiser", 10.0), nperseg=Nwind, noverlap=Nover, nfft=Nfft, return_onesided=False)
@@ -60,7 +66,7 @@ if __name__ == "__main__":
     reshaped_spec = np.fft.fftshift(np.abs(spec), axes=0).transpose()
     # c = new_ax[0].pcolor(np.fft.fftshift(fsp)[400:650], t, reshaped_spec, vmax=10)
     reduced_psd = 10*np.log10(np.fft.fftshift(psd) / np.max(psd))
-    ax[1].plot(np.fft.fftshift(f)[start_fft_index:stop_fft_index], reduced_psd[::-1][start_fft_index:stop_fft_index])
+    ax[1].plot(np.fft.fftshift(f)[start_fft_index:stop_fft_index], reduced_psd[::-1][start_fft_index:stop_fft_index], label="ota")
 
     # new_ax[0].axes.set_aspect('auto')
     # new_ax[0].axes.set_ylabel("sample count")
@@ -77,16 +83,21 @@ if __name__ == "__main__":
     # reshaped_spec = np.fft.fftshift(np.abs(spec), axes=0).transpose()
     # c = new_ax[0].pcolor(np.fft.fftshift(fsp)[400:650], t, reshaped_spec, vmax=10)
     reduced_psd_ = 10*np.log10(np.fft.fftshift(psd_) / np.max(psd_))
-    ax[1].plot(np.fft.fftshift(f_)[start_fft_index:stop_fft_index], reduced_psd_[::-1][start_fft_index:stop_fft_index], linestyle='--')
-
+    ax[1].plot(np.fft.fftshift(f_)[start_fft_index:stop_fft_index], reduced_psd_[::-1][start_fft_index:stop_fft_index], linestyle='--', label="synthetic")
+    ax[1].plot([0.5, 0.5], [-60, 0], linestyle="--", color="black", label="true tone")
+    ax[1].axes.legend(loc="best")
+    ax[1].plot([0.85, 0.85], [-60, 0], linestyle="--", color="black")
+    ax[1].plot([1.26, 1.26], [-60, 0], linestyle="--", color="black")
     # new_ax[0].axes.set_aspect('auto')
     # new_ax[0].axes.set_ylabel("sample count")
     ax[1].axes.set_aspect('auto')
     ax[1].axes.set_xlabel("Frequency (MHz)")
     ax[1].axes.set_ylabel("Power in dB")
-    ax[1].axes.minorticks_on()
+    ax[1].axes.set_title("Spectrogram")
+    # ax[1].axes.minorticks_on()
     ax[1].axes.set_ylim(-60.0, 0)
-    ax[1].axes.grid(axis="y", which="both")
+    ax[1].axes.set_xlim(0.125, 2.0)
+    ax[1].axes.grid(axis="y", which="major")
 
 
     fig.tight_layout()
