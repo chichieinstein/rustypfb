@@ -14,4 +14,4 @@ num-complex = { version = "0.4.4", features = ["bytemuck"] }
 offlinepfb-sys = { path = "./offlinepfb-sys" }
 streaming_channelizer = { path = "./streaming_channelizer" }
 rustdevice = { path = "./rustydevice/rustdevice" }
-uhd = { git = "ssh://git@github.com/ucsdwcsng/uhd-rust.git", branch = "main" }
+uhd = "0.3.0"

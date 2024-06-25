@@ -1,14 +1,12 @@
 pub use channelizer::{sinc, ChunkChannelizer};
 use num::{Complex, Zero};
-use num_complex::Complex32;
 pub use rustdevice::{compute_bessel, DevicePtr};
 use uhd::{StreamArgs, StreamCommand, StreamCommandType, StreamTime, TuneRequest, Usrp};
 
 use std::{
     f32::consts::PI,
-    io::{Read, Write},
+    io::{ Write},
     sync::{Arc, Mutex},
-    time::Instant,
 };
 
 const DEFAULT_CHANNEL: usize = 0;
@@ -17,13 +15,13 @@ const TX_ANTENNA: &str = "TX/RX";
 const TX_ADDR: &str = "192.168.101.18";
 const TX_USRP_TYPE: &str = "n3xx";
 const TX_MCR: usize = 200_000_000;
-const TX_NORM_GAIN: f64 = 0.75;
+const TX_NORM_GAIN: f64 = 0.8;
 
 const RX_ANTENNA: &str = "TX/RX";
 const RX_ADDR: &str = "192.168.101.11";
 const RX_USRP_TYPE: &str = "n3xx";
 const RX_MCR: usize = 200_000_000;
-const RX_NORM_GAIN: f64 = 0.3;
+const RX_NORM_GAIN: f64 = 0.35;
 
 fn main() {
     let nch = 1024;
@@ -55,9 +53,6 @@ fn main() {
     let fs: f32 = 100e6;
 
     let mut chann_obj = ChunkChannelizer::new(filter.as_mut_slice(), ntaps, nch, nslice);
-
-    // Setup the output buffer
-    let mut channelized_output_buffer = DevicePtr::<Complex<f32>>::new(nch * nslice);
 
     // Setup the baseband vector
     let mut baseband = vec![Complex::zero() as Complex<f32>; (nch * nslice / 2) as usize];
@@ -157,6 +152,7 @@ fn main() {
                 // append these samples to the raw input vector
                 raw_input_vec.extend(rx_binding.drain(..))
             }
+            std::thread::sleep(std::time::Duration::from_millis(10));
         }
 
         return raw_input_vec;
@@ -179,7 +175,7 @@ fn main() {
         *tx_running.lock().unwrap() = false;
     });
 
-    let mut raw_input_vec = rx_thrd_handle.join().unwrap();
+    let raw_input_vec = rx_thrd_handle.join().unwrap();
     tx_thrd_handle.join().unwrap();
 
     println!("\nFinished transmission and reception");
