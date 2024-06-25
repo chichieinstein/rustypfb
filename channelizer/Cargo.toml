@@ -11,6 +11,7 @@ num.workspace = true
 num-complex.workspace = true
 offlinepfb-sys.workspace = true
 rustdevice.workspace = true
+uhd.workspace = true
 
 [build-dependencies]
 cc.workspace = true
