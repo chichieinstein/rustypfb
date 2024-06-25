@@ -43,10 +43,11 @@ if __name__ == "__main__":
     f, psd = sig.welch(iq, fs=5.0, window=("kaiser", 10.0), nperseg=Nwind, noverlap=Nover, nfft=Nfft, return_onesided=False)
     fsp, t, spec = sig.spectrogram(iq, fs=5.0, window=("kaiser", 10.0), nperseg=Nwind, noverlap=Nover, nfft=Nfft, return_onesided=False)
    # new_fig, new_ax = plt.subplots(2,1,sharex=True)
-    reshaped_spec = np.fft.fftshift(np.abs(spec), axes=0)[::-1][400:650, :].transpose()
+    reshaped_spec = np.fft.fftshift(np.abs(spec), axes=0)[::-1][100:510, :].transpose()
     # c = new_ax[0].pcolor(np.fft.fftshift(fsp)[400:650], t, reshaped_spec, vmax=10)
     reduced_psd = 10*np.log10(np.fft.fftshift(psd) / np.max(psd))
-    ax[1].plot(np.fft.fftshift(f)[400:650], reduced_psd[::-1][400:650])
+    ax[1].plot(np.fft.fftshift(f)[100:510], reduced_psd[::-1][100:510])
+
     # new_ax[0].axes.set_aspect('auto')
     # new_ax[0].axes.set_ylabel("sample count")
     ax[1].axes.set_aspect('auto')
