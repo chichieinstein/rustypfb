@@ -17,7 +17,7 @@ if __name__ == "__main__":
     c = ax[0].pcolor(50.0 - 100.0 * np.array([ind for ind in range(400, 650)][::-1]).astype("float32") / 1024, np.arange(reshaped_iq.shape[0]), reshaped_iq, vmax=80)
     os.makedirs("../images", exist_ok=True)
     #fig.colorbar(c, ax=ax[0])
-    ax[1].plot(50.0 - 100.0 * np.array([ind for ind in range(400, 650)][::-1]).astype("float32") / 1024, reduced_iq[400:650][::-1])
+    ax[1].plot(50.0 - 100.0 * np.array([ind for ind in range(550, 1024)][::-1]).astype("float32") / 1024, reduced_iq[400:650][::-1])
     ax[0].axes.set_aspect('auto')
     ax[0].axes.set_ylabel("sample count")
     ax[1].axes.set_aspect('auto')
