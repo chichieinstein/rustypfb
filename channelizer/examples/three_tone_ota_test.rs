@@ -7,21 +7,22 @@ use std::{
     f32::consts::PI,
     io::{ Write},
     sync::{Arc, Mutex},
+    cmp,
 };
 
 const DEFAULT_CHANNEL: usize = 0;
 
 const TX_ANTENNA: &str = "TX/RX";
-const TX_ADDR: &str = "192.168.101.18";
-const TX_USRP_TYPE: &str = "n3xx";
+const TX_ADDR: &str = "192.168.101.20";
+const TX_USRP_TYPE: &str = "x300";
 const TX_MCR: usize = 200_000_000;
-const TX_NORM_GAIN: f64 = 0.8;
+const TX_NORM_GAIN: f64 = 0.2;
 
 const RX_ANTENNA: &str = "TX/RX";
-const RX_ADDR: &str = "192.168.101.11";
+const RX_ADDR: &str = "192.168.101.16";
 const RX_USRP_TYPE: &str = "n3xx";
 const RX_MCR: usize = 200_000_000;
-const RX_NORM_GAIN: f64 = 0.35;
+const RX_NORM_GAIN: f64 = 0.6;
 
 fn main() {
     let nch = 1024;
@@ -49,8 +50,10 @@ fn main() {
     let fc1: f32 = 0.5e6;
     let fc2: f32 = 1.25e6;
     let fc3: f32 = 0.85e6;
-    let a2_db: f32 = -35.0;
-    let fs: f32 = 100e6;
+
+    let a2_db: f32 = -17.5;
+    let mut amplitude: f32 = 0.52;
+    let fs: f32 = 5e6;
 
     let mut chann_obj = ChunkChannelizer::new(filter.as_mut_slice(), ntaps, nch, nslice);
 
@@ -59,16 +62,31 @@ fn main() {
 
     baseband.iter_mut().enumerate().for_each(|(ind, elem)| {
         *elem = Complex::new(
-            (2.0 * PI * fc1 * (ind as f32) / fs).cos(),
-            (-2.0 * PI * fc1 * (ind as f32) / fs).sin(),
+            amplitude * (2.0 * PI * fc1 * (ind as f32) / fs).cos(),
+            amplitude * (-2.0 * PI * fc1 * (ind as f32) / fs).sin(),
         ) + Complex::new(
-            (2.0 * PI * fc3 * (ind as f32) / fs).cos(),
-            (-2.0 * PI * fc3 * (ind as f32) / fs).sin(),
-        ) + Complex::new(
-            (2.0 * PI * fc2 * (ind as f32) / fs).cos() * 10.0f32.powf(a2_db / 20.0),
-            (-2.0 * PI * fc2 * (ind as f32) / fs).sin() * 10.0f32.powf(a2_db / 20.0),
+            amplitude * (2.0 * PI * fc3 * (ind as f32) / fs).cos(),
+            amplitude * (-2.0 * PI * fc3 * (ind as f32) / fs).sin(),
+        ) 
+        + Complex::new(
+            amplitude * (2.0 * PI * fc2 * (ind as f32) / fs).cos() * 10.0f32.powf(a2_db/10.0),
+            amplitude * (-2.0 * PI * fc2 * (ind as f32) / fs).sin() * 10.0f32.powf(a2_db/10.0),
         )
     });
+
+    let max_amp = baseband.iter()
+        .map(|c| c.norm())
+        .fold(0_f32, |max, amp| if amp > max { amp } else { max });
+
+    let mut normalized_baseband: Vec<_> = baseband.iter()
+        .map(|c| 0.8 * c / max_amp)
+        .collect();
+
+    let max_norm_amp = normalized_baseband.iter()
+        .map(|c| c.norm())
+        .fold(0_f32, |max, amp| if amp > max { amp } else { max });
+
+    println!("Max amplitude: {}", max_norm_amp);
 
     let radio_center_freq = 3.0e9;
 
@@ -164,7 +182,7 @@ fn main() {
             .get_tx_stream(&StreamArgs::<Complex<f32>>::new("sc16"))
             .expect("Failed to get TX stream");
 
-        let mut tx_buffer = Box::new(baseband.as_mut_slice());
+        let mut tx_buffer = Box::new(normalized_baseband.as_mut_slice());
 
         *tx_running.lock().unwrap() = true;
         for _ in 0..10 {
