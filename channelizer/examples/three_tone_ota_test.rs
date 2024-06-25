@@ -51,7 +51,7 @@ fn main() {
     let fc2: f32 = 1.25e6;
     let fc3: f32 = 0.85e6;
 
-    let a2_db: f32 = -9.5;
+    let a2_db: f32 = -17.5;
     let mut amplitude: f32 = 0.8;
     let fs: f32 = 5e6;
     let rx_fs: f32 = 100e6;
