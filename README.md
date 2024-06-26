@@ -16,19 +16,45 @@ For this milestone, we want to show that our polyphase filter bank achieves grea
 
 2. Inside the container, run 
 
-``cargo run --example three_tone_test`` 
+```
+cargo run --release --example three_tone_ota_test -- run \
+    --tx_antenna <TX_ANTENNA> \
+    --tx_channel <TX_CHANNEL> \
+    --tx_addr <TX_ADDRESS> \
+    --tx_usrp_type <TX_TYPE> \
+    --tx_norm_gain <TX_NORMALIZED_GAIN> \
+    --rx_antenna <RX_ANTENNA> \
+    --rx_channel <RX_CHANNEL> \
+    --rx_addr <RX_ADDRESS> \
+    --rx_usrp_type <RX_TYPE> \
+    --rx_norm_gain <RX_NORMALIZED_GAIN>
+```
 
-This command instructs cargo to run the example [rust code here](channelizer/examples/three_tone_test.rs). We are concerned with the three tone test scenario, where we have three narrow band tones, and one of them is **35dB** weaker than the other two. The rust file performs two tasks, namely,
+We found the following parameters to work well for us:
+```
+cargo run --release --example three_tone_ota_test -- run \
+    --tx_antenna TX/RX \
+    --tx_channel 0 \
+    --tx_addr 192.168.101.20 \
+    --tx_usrp_type x300 \
+    --tx_norm_gain 0.2 \
+    --rx_antenna TX/RX \
+    --rx_channel 0 \
+    --rx_addr 192.168.101.16 \
+    --rx_usrp_type n3xx \
+    --rx_norm_gain 0.6
+```
+
+This command instructs cargo to run the example [rust code here](channelizer/examples/three_tone_ota_test.rs). We are concerned with the three tone test scenario, where we have three narrow band tones, and one of them is **35dB** weaker than the other two. The rust file performs the following steps:
 
     1. creates iq for the three tone test scenario.
-    2. channelized the iq in the previous step into 1024 channels
+    2. transmit the iq over the air.
+    3. receive the iq over the air.
+    4. perform the channelization on both synthetic and ota data
+    5. save the raw synthetic iq, ota iq, synthetic channogram, and ota channogram to disk.
 
-3. Finally, to visualize the channogram, channpsd and their superior performance compared to spectrogram and psd, run the python script ``tone_test_spectrogram.py`` in [here](test_scripts). This will generate two ``png`` files, namely
+3. Finally, to visualize the channogram, channpsd and their superior performance compared to spectrogram and psd, run the python script ``tone_test_spectrogram.py`` in [here](test_scripts). This will generate a ``png`` file, namely
 
-    1. **channogram.png** 
-    2. **spectrogram.png** 
+    1. **chann_spectrogram.png** 
 
-in a folder named ``images``. These images will illustrate the achieved improved dynamic range with the channelizer. 
-
-
-
+in a folder named ``images``. This image will show the channogram (top plot) and the spectrogram (bottom plot) of the three tone test scenario.
