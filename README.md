@@ -47,11 +47,11 @@ cargo run --release --example three_tone_ota_test -- run \
 
 This command instructs cargo to run the example [rust code here](channelizer/examples/three_tone_ota_test.rs). We are concerned with the three tone test scenario, where we have three narrow band tones, and one of them is **35dB** weaker than the other two. The rust file performs the following steps:
 
-    1. creates iq for the three tone test scenario.
-    2. transmit the iq over the air.
-    3. receive the iq over the air.
-    4. perform the channelization on both synthetic and ota data
-    5. save the raw synthetic iq, ota iq, synthetic channogram, and ota channogram to disk.
+1. creates iq for the three tone test scenario.
+2. transmit the iq over the air.
+3. receive the iq over the air.
+4. perform the channelization on both synthetic and ota data
+5. save the [synthetic iq tones](iq/synthetic_tones.32cf), [ota iq tones](iq/ota_tones.32cf), [synthetic tones passed through channogram](iq/synthetic_tones_channelized.32cf), and [ota tones passed through channogram](iq/ota_tones_channelized.32cf) to disk.
 
 3. Finally, to visualize the channogram, channpsd and their superior performance compared to spectrogram and psd, run the python script ``tone_test_spectrogram.py`` in [here](test_scripts). This will generate a ``png`` file, namely
 

@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
 
-    chann_iq = np.fromfile("../iq/tone_channelized.32cf", dtype="complex64")
-    synth_chann_iq = np.fromfile("../iq/synthetic_channelized.32cf", dtype="complex64")
+    chann_iq = np.fromfile("../iq/ota_tones_channelized.32cf", dtype="complex64")
+    synth_chann_iq = np.fromfile("../iq/synthetic_tones_channelized.32cf", dtype="complex64")
     # Plot Channogram and ChannPsd
     # fig, ax = plt.subplots(3, 1) 
     fig, ax = plt.subplots(2,1)
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     
     start_fft_index = 512
     stop_fft_index = 534
-    iq = np.fromfile("../iq/tones.32cf", dtype="complex64")
+    iq = np.fromfile("../iq/ota_tones.32cf", dtype="complex64")
     f, psd = sig.welch(iq, fs=fs, window=("kaiser", 10.0), nperseg=Nwind, noverlap=Nover, nfft=Nfft, return_onesided=False)
     fsp, t, spec = sig.spectrogram(iq, fs=fs, window=("kaiser", 10.0), nperseg=Nwind, noverlap=Nover, nfft=Nfft, return_onesided=False)
    # new_fig, new_ax = plt.subplots(2,1,sharex=True)
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     # ax[1].axes.set_ylim(-60.0, 0)
     # ax[1].axes.grid(axis="y", which="both")
     
-    iq = np.fromfile("../iq/synthetic.32cf", dtype="complex64")
+    iq = np.fromfile("../iq/synthetic_tones.32cf", dtype="complex64")
     f_, psd_ = sig.welch(iq, fs=fs, window=("kaiser", 10.0), nperseg=Nwind, noverlap=Nover, nfft=Nfft, return_onesided=False)
     fsp, t, spec = sig.spectrogram(iq, fs=fs, window=("kaiser", 10.0), nperseg=Nwind, noverlap=Nover, nfft=Nfft, return_onesided=False)
    # new_fig, new_ax = plt.subplots(2,1,sharex=True)

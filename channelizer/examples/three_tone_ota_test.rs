@@ -4,10 +4,10 @@ pub use rustdevice::{compute_bessel, DevicePtr};
 use uhd::{StreamArgs, StreamCommand, StreamCommandType, StreamTime, TuneRequest, Usrp};
 
 use std::{
-    f32::consts::PI,
-    io::{ Write},
-    sync::{Arc, Mutex},
     cmp,
+    f32::consts::PI,
+    io::Write,
+    sync::{Arc, Mutex},
 };
 
 const TX_MCR: usize = 200_000_000;
@@ -89,9 +89,9 @@ fn main() {
         let rx_usrp_type = run_config.get_one::<String>("rx_usrp_type").unwrap();
         let tx_norm_gain_str = run_config.get_one::<String>("rx_norm_gain").unwrap();
         let rx_norm_gain = tx_norm_gain_str.parse::<f64>().unwrap();
-    
+
         print_config(run_config);
-    
+
         let nch = 1024;
         let ntaps = 32;
         let nslice = 512;
@@ -102,8 +102,8 @@ fn main() {
         let nsamples = nch * nslice;
 
         /*
-        * Setup the channelizer prototype filter parameters
-        */
+         * Setup the channelizer prototype filter parameters
+         */
         let mut filter: Vec<f32> = (0..nch * ntaps)
             .map(|x| {
                 let y = x as f32;
@@ -135,36 +135,43 @@ fn main() {
             ) + Complex::new(
                 amplitude * (2.0 * PI * fc3 * (ind as f32) / fs).cos(),
                 amplitude * (-2.0 * PI * fc3 * (ind as f32) / fs).sin(),
-            ) 
-            + Complex::new(
-                amplitude * (2.0 * PI * fc2 * (ind as f32) / fs).cos() * 10.0f32.powf(a2_db/10.0),
-                amplitude * (-2.0 * PI * fc2 * (ind as f32) / fs).sin() * 10.0f32.powf(a2_db/10.0),
+            ) + Complex::new(
+                amplitude * (2.0 * PI * fc2 * (ind as f32) / fs).cos() * 10.0f32.powf(a2_db / 10.0),
+                amplitude
+                    * (-2.0 * PI * fc2 * (ind as f32) / fs).sin()
+                    * 10.0f32.powf(a2_db / 10.0),
             )
         });
 
         let mut synth_baseband = vec![Complex::zero() as Complex<f32>; (nch * nslice / 2) as usize];
 
-        synth_baseband.iter_mut().enumerate().for_each(|(ind, elem)| {
-            *elem = Complex::new(
-                amplitude * (2.0 * PI * fc1 * (ind as f32) / rx_fs).cos(),
-                amplitude * (-2.0 * PI * fc1 * (ind as f32) / rx_fs).sin(),
-            ) + Complex::new(
-                amplitude * (2.0 * PI * fc3 * (ind as f32) / rx_fs).cos(),
-                amplitude * (-2.0 * PI * fc3 * (ind as f32) / rx_fs).sin(),
-            ) 
-            + Complex::new(
-                amplitude * (2.0 * PI * fc2 * (ind as f32) / rx_fs).cos() * 10.0f32.powf(a2_db/10.0),
-                amplitude * (-2.0 * PI * fc2 * (ind as f32) / rx_fs).sin() * 10.0f32.powf(a2_db/10.0),
-            )
-        });
+        synth_baseband
+            .iter_mut()
+            .enumerate()
+            .for_each(|(ind, elem)| {
+                *elem = Complex::new(
+                    amplitude * (2.0 * PI * fc1 * (ind as f32) / rx_fs).cos(),
+                    amplitude * (-2.0 * PI * fc1 * (ind as f32) / rx_fs).sin(),
+                ) + Complex::new(
+                    amplitude * (2.0 * PI * fc3 * (ind as f32) / rx_fs).cos(),
+                    amplitude * (-2.0 * PI * fc3 * (ind as f32) / rx_fs).sin(),
+                ) + Complex::new(
+                    amplitude
+                        * (2.0 * PI * fc2 * (ind as f32) / rx_fs).cos()
+                        * 10.0f32.powf(a2_db / 10.0),
+                    amplitude
+                        * (-2.0 * PI * fc2 * (ind as f32) / rx_fs).sin()
+                        * 10.0f32.powf(a2_db / 10.0),
+                )
+            });
 
-        let max_amp = baseband.iter()
-            .map(|c| c.norm())
-            .fold(0_f32, |max, amp| if amp > max { amp } else { max });
+        let max_amp =
+            baseband
+                .iter()
+                .map(|c| c.norm())
+                .fold(0_f32, |max, amp| if amp > max { amp } else { max });
 
-        let mut normalized_baseband: Vec<_> = baseband.iter()
-            .map(|c| 0.8 * c / max_amp)
-            .collect();
+        let mut normalized_baseband: Vec<_> = baseband.iter().map(|c| 0.8 * c / max_amp).collect();
 
         let radio_center_freq = 3.0e9;
 
@@ -279,14 +286,14 @@ fn main() {
 
         println!("Processing {} samples", input_vec.len());
 
-        let path = std::path::Path::new("./iq/tones.32cf");
+        let path = std::path::Path::new("./iq/ota_tones.32cf");
         let prefix = path.parent().unwrap();
         std::fs::create_dir_all(prefix).unwrap();
         let mut tone_file = std::fs::File::create(path).unwrap();
         let tone_outp_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut input_vec);
         let _ = tone_file.write_all(tone_outp_slice);
 
-        let synthetic_path = std::path::Path::new("./iq/synthetic.32cf");
+        let synthetic_path = std::path::Path::new("./iq/synthetic_tones.32cf");
         let mut synthetic_file = std::fs::File::create(synthetic_path).unwrap();
         let synthetic_outp_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut synth_baseband);
         let _ = synthetic_file.write_all(synthetic_outp_slice);
@@ -305,7 +312,7 @@ fn main() {
         chann_obj.process(&mut inp_vec_float, &mut output_buffer);
         output_buffer.dump(&mut output_cpu);
 
-        let mut chann_file = std::fs::File::create("./iq/tone_channelized.32cf").unwrap();
+        let mut chann_file = std::fs::File::create("./iq/ota_tones_channelized.32cf").unwrap();
         let tone_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut output_cpu);
         let _ = chann_file.write_all(tone_slice);
 
@@ -323,7 +330,8 @@ fn main() {
         chann_obj.process(&mut synth_inp_vec_float, &mut synth_output_buffer);
         synth_output_buffer.dump(&mut synth_output_cpu);
 
-        let mut synth_chann_file = std::fs::File::create("./iq/synthetic_channelized.32cf").unwrap();
+        let mut synth_chann_file =
+            std::fs::File::create("./iq/synthetic_tones_channelized.32cf").unwrap();
         let synth_tone_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut synth_output_cpu);
         let _ = synth_chann_file.write_all(synth_tone_slice);
     }
@@ -346,23 +354,50 @@ where
     (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 }
 
-
-fn print_config(run_config: &clap::ArgMatches)
-{
+fn print_config(run_config: &clap::ArgMatches) {
     println!("\n-------------------------");
     println!("Transmitter Configuration");
-    println!("Antenna: {}", run_config.get_one::<String>("tx_antenna").unwrap());
-    println!("Channel: {}", run_config.get_one::<String>("tx_channel").unwrap());
-    println!("Address: {}", run_config.get_one::<String>("tx_addr").unwrap());
-    println!("USRP Type: {}", run_config.get_one::<String>("tx_usrp_type").unwrap());
-    println!("Normalized Gain: {}\n", run_config.get_one::<String>("tx_norm_gain").unwrap());
-    
-    println!("Receiver Configuration");
-    println!("Antenna: {}", run_config.get_one::<String>("rx_antenna").unwrap());
-    println!("Channel: {}", run_config.get_one::<String>("rx_channel").unwrap());
-    println!("Address: {}", run_config.get_one::<String>("rx_addr").unwrap());
-    println!("USRP Type: {}", run_config.get_one::<String>("rx_usrp_type").unwrap());
-    println!("Normalized Gain: {}", run_config.get_one::<String>("rx_norm_gain").unwrap());
-    println!("-------------------------\n");
+    println!(
+        "Antenna: {}",
+        run_config.get_one::<String>("tx_antenna").unwrap()
+    );
+    println!(
+        "Channel: {}",
+        run_config.get_one::<String>("tx_channel").unwrap()
+    );
+    println!(
+        "Address: {}",
+        run_config.get_one::<String>("tx_addr").unwrap()
+    );
+    println!(
+        "USRP Type: {}",
+        run_config.get_one::<String>("tx_usrp_type").unwrap()
+    );
+    println!(
+        "Normalized Gain: {}\n",
+        run_config.get_one::<String>("tx_norm_gain").unwrap()
+    );
 
+    println!("Receiver Configuration");
+    println!(
+        "Antenna: {}",
+        run_config.get_one::<String>("rx_antenna").unwrap()
+    );
+    println!(
+        "Channel: {}",
+        run_config.get_one::<String>("rx_channel").unwrap()
+    );
+    println!(
+        "Address: {}",
+        run_config.get_one::<String>("rx_addr").unwrap()
+    );
+    println!(
+        "USRP Type: {}",
+        run_config.get_one::<String>("rx_usrp_type").unwrap()
+    );
+    println!(
+        "Normalized Gain: {}",
+        run_config.get_one::<String>("rx_norm_gain").unwrap()
+    );
+    println!("-------------------------\n");
 }
