@@ -6,11 +6,13 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 bytemuck.workspace = true
+clap = "=4.4.18"
 libm.workspace = true
 num.workspace = true
 num-complex.workspace = true
 offlinepfb-sys.workspace = true
 rustdevice.workspace = true
+uhd.workspace = true
 
 [build-dependencies]
 cc.workspace = true
