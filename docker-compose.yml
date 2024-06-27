@@ -12,7 +12,7 @@ services:
     devices:
       - nvidia.com/gpu=1  
 
-    working_dir: "/root/ProjectDir"
+    working_dir: "/root/channelizer"
     command: ["tail", "-f", "/dev/null"]    # Specify the command to run when the container starts.
 
   rustcuda-devel:

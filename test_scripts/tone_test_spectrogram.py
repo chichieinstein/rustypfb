@@ -4,6 +4,81 @@ from scipy.signal import resample_poly
 import os 
 import matplotlib.pyplot as plt 
 
+def detect(norm_iq, is_synth=False):
+    """
+    Detect the energy in the normalized IQ data. This will return
+    a logical array where the energy is above a certain threshold.
+    """
+    if is_synth:
+        threshold_db = -40.0
+    else:
+        threshold_db = -33.0
+        
+    energy = np.array([x > threshold_db for x in norm_iq])    
+    return energy
+    
+
+    
+
+def find_continuous_segments(logical_array):
+    """
+    Find the continuous segments in the logical array. This will
+    return a list of tuples where each tuple is the start and end
+    index of the segment.
+    """
+    segments = []
+    segment_start = None
+    segment_has_started = False
+
+    for i, value in enumerate(logical_array):
+        if value and segment_start is None:
+            segment_start = i
+        elif not value and segment_has_started:
+            segments.append((segment_start, i - 1))
+            segment_start = None
+        segment_has_started = value
+        
+    if logical_array[0] and logical_array[-1]:
+        segments.append((segment_start, len(logical_array) - 1))
+
+    return segments
+
+def combine_continuous_segments(segments):
+    """
+    Combine the continuous segments into a single value.
+    """
+    combined = np.zeros(len(segments), dtype="int")
+    for i, segement in enumerate(segments):
+        combined[i] = int(np.mean(segement))
+    return combined
+
+def find_fcs(detected_energy, fs):
+    segments = find_continuous_segments(detected_energy)
+    average_bin = combine_continuous_segments(segments)
+    fcs = [fs/2 - fs * ind / 1024 for ind in average_bin]
+    return fcs
+
+def save_fcs(fcs_ota_channogram, fcs_synth_channogram, fcs_ota_spectrogram, fcs_synth_spectrogram, filename):
+    # create a file and write the FCS in OTA and Synthetic
+    # AttributeError: 'numpy.float64' object has no attribute 'write'
+    with open(filename, "w") as f:
+        f.write("Center frequency of detected energy in OTA Channogram:")
+        for fcs in fcs_ota_channogram:
+            f.write("\n"+ str(fcs) + " MHz")
+        f.write("\n")
+        f.write("\nCenter frequency of detected energy in Synthetic Channogram:")
+        for fcs in fcs_synth_channogram:
+            f.write("\n"+ str(fcs) + " MHz")
+        f.write("\n")
+        f.write("\nCenter frequency of detected energy in OTA Spectrogram:")
+        for fcs in fcs_ota_spectrogram:
+            f.write("\n"+ str(fcs) + " MHz")
+        f.write("\n")
+        f.write("\nCenter frequency of detected energy in Synthetic Spectrogram:")
+        for fcs in fcs_synth_spectrogram:
+            f.write("\n"+ str(fcs) + " MHz")
+        f.write("\n")
+        
 if __name__ == "__main__":
 
     chann_iq = np.fromfile("../iq/ota_tones_channelized.32cf", dtype="complex64")
@@ -25,7 +100,7 @@ if __name__ == "__main__":
     cf = 0.0
     fs = 100.0
     synth_fs = 5.0
-    start_index = 490
+    start_index = 450
     stop_index = 530
     
     ax[0].plot(fs / 2 - fs * np.array([ind for ind in range(start_index, stop_index)][::-1]).astype("float32") / 1024, reduced_iq[start_index:stop_index][::-1], label="ota")
@@ -42,7 +117,7 @@ if __name__ == "__main__":
     ax[0].axes.set_ylim(-60.0, 0)
     # ax[0].axes.minorticks_on()
     ax[0].axes.grid(axis="y", which="major")
-    ax[0].axes.set_xlim(0.125, 2.0)
+    ax[0].axes.set_xlim(-1.0, 2.0)
     ax[0].axes.legend(loc="best")
     ax[0].axes.set_title("Channogram")
     #ax[1].axes.set_aspect('auto')
@@ -57,7 +132,7 @@ if __name__ == "__main__":
     Nover = 512 
     Nwind = 1024 
     
-    start_fft_index = 512
+    start_fft_index = 500
     stop_fft_index = 534
     iq = np.fromfile("../iq/ota_tones.32cf", dtype="complex64")
     f, psd = sig.welch(iq, fs=fs, window=("kaiser", 10.0), nperseg=Nwind, noverlap=Nover, nfft=Nfft, return_onesided=False)
@@ -96,7 +171,7 @@ if __name__ == "__main__":
     ax[1].axes.set_title("Spectrogram")
     # ax[1].axes.minorticks_on()
     ax[1].axes.set_ylim(-60.0, 0)
-    ax[1].axes.set_xlim(0.125, 2.0)
+    ax[1].axes.set_xlim(-1.0, 2.0)
     ax[1].axes.grid(axis="y", which="major")
 
 
@@ -104,4 +179,22 @@ if __name__ == "__main__":
     fig.savefig("../images/chann_spectrogram.png")
 
 
-
+    # Detect energy in reduced_iq and synth_reduced_iq
+    detected_energy_ota_channogram = detect(reduced_iq)
+    detected_energy_synthetic_channogram = detect(synth_reduced_iq, True)
+    detected_energy_ota_spectro = detect(reduced_psd)
+    detected_energy_synthetic_spectro = detect(reduced_psd_, True)
+     
+    fcs_ota_channogram = find_fcs(detected_energy_ota_channogram, fs)[::-1]
+    fcs_synthetic_channogram = find_fcs(detected_energy_synthetic_channogram, fs)[::-1]
+    fcs_ota_spectro = find_fcs(detected_energy_ota_spectro, fs)[::-1]
+    fcs_synthetic_spectro = find_fcs(detected_energy_synthetic_spectro, fs)[::-1]
+    
+    
+    save_fcs(fcs_ota_channogram, fcs_synthetic_channogram, fcs_ota_spectro, fcs_synthetic_spectro,"../images/fcs.txt")
+    
+    
+    print("Detected energy in OTA Channogram: ", fcs_ota_channogram)
+    print("Detected energy in Synthetic Channogram: ", fcs_synthetic_channogram)
+    print("Detected energy in OTA Spectrogram: ", fcs_ota_spectro)
+    print("Detected energy in Synthetic Spectrogram: ", fcs_synthetic_spectro)
