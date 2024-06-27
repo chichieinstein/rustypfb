@@ -53,8 +53,13 @@ This command instructs cargo to run the example [rust code here](channelizer/exa
 4. perform the channelization on both synthetic and ota data
 5. save the [synthetic iq tones](iq/synthetic_tones.32cf), [ota iq tones](iq/ota_tones.32cf), [synthetic tones passed through channogram](iq/synthetic_tones_channelized.32cf), and [ota tones passed through channogram](iq/ota_tones_channelized.32cf) to disk.
 
-3. Finally, to visualize the channogram, channpsd and their superior performance compared to spectrogram and psd, run the python script ``tone_test_spectrogram.py`` in [here](test_scripts). This will generate a ``png`` file, namely
+3. Finally, to visualize the channogram, channpsd and their superior performance compared to spectrogram and psd, run the python script ``tone_test_spectrogram.py --multiplier <FACTOR>`` in [here](test_scripts). This will generate a ``png`` and ``txt`` files in the ``images`` folder. 
 
     1. **chann_spectrogram.png** 
+    2. **fcs.txt**
 
-in a folder named ``images``. This image will show the channogram (top plot) and the spectrogram (bottom plot) of the three tone test scenario.
+This image will show the channogram (top plot) and the spectrogram (bottom plot) of the three tone test scenario.
+The txt file will contain the center frequencies detected by the channogram and spectrogram.
+
+> [!NOTE]
+> The `--multiplier <FACTOR>` argument is optional. If provided, threshold for channogram is set to `FACTOR` times estimated noise floor. If not provided, threshold is set to 1.5 times estimated noise floor.
