@@ -3,14 +3,13 @@ import scipy.signal as sig
 from scipy.signal import medfilt 
 import os 
 import matplotlib.pyplot as plt 
+import argparse
 
-
-def detect(norm_iq, noise_floors, is_synth=False, channogram=False):
+def detect(norm_iq, noise_floors, multiplier, is_synth=False, channogram=False):
     """
     Detect the energy in the normalized IQ data. This will return
     a logical array where the energy is above a certain threshold.
     """
-    multiplier = 1.5
     offset = 10*np.log10(multiplier)
     
     if is_synth and channogram:
@@ -79,6 +78,13 @@ def save_fcs(fcs_ota_channogram, fcs_synth_channogram, fcs_ota_spectrogram, fcs_
         f.write("\n")
         
 if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser(description="Test the tone detection algorithm")
+    parser.add_argument("--multiplier", type=float, default=1.5, help="The multiplier for the threshold")
+    
+    args = parser.parse_args()
+    
+    multiplier = args.multiplier
 
     chann_iq = np.fromfile("../iq/ota_tones_channelized.32cf", dtype="complex64")
     synth_chann_iq = np.fromfile("../iq/synthetic_tones_channelized.32cf", dtype="complex64")
@@ -191,11 +197,11 @@ if __name__ == "__main__":
     # filtered_iq = medfilt(reduced_psd_, kernel_size=5)
 
     
-    threshold_ota_channogram, detected_energy_ota_channogram = detect(reduced_iq, noise_floors, False, True)
-    threshold_synthetic_channogram, detected_energy_synthetic_channogram = detect(synth_reduced_iq, noise_floors, True, True)
+    threshold_ota_channogram, detected_energy_ota_channogram = detect(reduced_iq, noise_floors, multiplier, False, True)
+    threshold_synthetic_channogram, detected_energy_synthetic_channogram = detect(synth_reduced_iq, noise_floors, multiplier, True, True)
     
-    threshold_ota_spectro, detected_energy_ota_spectro = detect(reduced_psd, noise_floors)
-    threshold_synthetic_spectro, detected_energy_synthetic_spectro = detect(reduced_psd_, noise_floors, True)
+    threshold_ota_spectro, detected_energy_ota_spectro = detect(reduced_psd, noise_floors, multiplier)
+    threshold_synthetic_spectro, detected_energy_synthetic_spectro = detect(reduced_psd_, noise_floors, multiplier, True)
     
     ax[0].plot([-fs/2, fs/2], [threshold_ota_channogram, threshold_ota_channogram], linestyle="--", color="red", label="OTA Threshold")
     ax[1].plot([-fs/2, fs/2], [threshold_ota_spectro, threshold_ota_spectro], linestyle="--", color="red", label="OTA Threshold")
