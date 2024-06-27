@@ -10,7 +10,7 @@ services:
     networks:
       - nw
     devices:
-      - nvidia.com/gpu=1  
+      - nvidia.com/gpu=0
 
     working_dir: "/root/channelizer"
     command: ["tail", "-f", "/dev/null"]    # Specify the command to run when the container starts.
@@ -30,7 +30,7 @@ services:
     ports:
       - 127.0.0.1::5901
     devices:
-      - nvidia.com/gpu=1      
+      - nvidia.com/gpu=0
     deploy:
       resources:
         limits:
