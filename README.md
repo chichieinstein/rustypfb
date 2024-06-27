@@ -62,4 +62,4 @@ This image will show the channogram (top plot) and the spectrogram (bottom plot)
 The txt file will contain the center frequencies detected by the channogram and spectrogram.
 
 > [!NOTE]
-> The `--multiplier <FACTOR>` argument is optional. If provided, threshold for channogram is set to `FACTOR` times estimated noise floor. If not provided, threshold is set to 1.5 times estimated noise floor.
+> The `--multiplier <FACTOR>` argument is optional. If provided, threshold is set to `FACTOR` times estimated noise floor. If not provided, threshold is set to 1.5 times estimated noise floor.
