@@ -4,20 +4,17 @@ from scipy.signal import resample_poly
 import os 
 import matplotlib.pyplot as plt 
 
+SYNTHETIC_THRESHOLD = -40.0
+OTA_THRESHOLD = -33.0
+
 def detect(norm_iq, is_synth=False):
     """
     Detect the energy in the normalized IQ data. This will return
     a logical array where the energy is above a certain threshold.
     """
-    if is_synth:
-        threshold_db = -40.0
-    else:
-        threshold_db = -33.0
-        
+    threshold_db = SYNTHETIC_THRESHOLD if is_synth else OTA_THRESHOLD
     energy = np.array([x > threshold_db for x in norm_iq])    
     return energy
-    
-
     
 
 def find_continuous_segments(logical_array):
@@ -179,7 +176,7 @@ if __name__ == "__main__":
     fig.savefig("../images/chann_spectrogram.png")
 
 
-    # Detect energy in reduced_iq and synth_reduced_iq
+    # Detect energy in reduced_iq and synth_reduced_iq    
     detected_energy_ota_channogram = detect(reduced_iq)
     detected_energy_synthetic_channogram = detect(synth_reduced_iq, True)
     detected_energy_ota_spectro = detect(reduced_psd)
@@ -190,11 +187,34 @@ if __name__ == "__main__":
     fcs_ota_spectro = find_fcs(detected_energy_ota_spectro, fs)[::-1]
     fcs_synthetic_spectro = find_fcs(detected_energy_synthetic_spectro, fs)[::-1]
     
-    
     save_fcs(fcs_ota_channogram, fcs_synthetic_channogram, fcs_ota_spectro, fcs_synthetic_spectro,"../images/fcs.txt")
-    
     
     print("Detected energy in OTA Channogram: ", fcs_ota_channogram)
     print("Detected energy in Synthetic Channogram: ", fcs_synthetic_channogram)
     print("Detected energy in OTA Spectrogram: ", fcs_ota_spectro)
     print("Detected energy in Synthetic Spectrogram: ", fcs_synthetic_spectro)
+    
+    detect_fig, detect_ax = plt.subplots(2,1)
+    
+    detect_ax[0].axes.plot(fs / 2 - fs * np.array([ind for ind in range(start_index, stop_index)][::-1]).astype("float32") / 1024, detected_energy_ota_channogram[start_index:stop_index][::-1], label="OTA")
+    detect_ax[0].axes.plot(fs / 2 - fs * np.array([ind for ind in range(start_index, stop_index)][::-1]).astype("float32") / 1024, detected_energy_synthetic_channogram[start_index:stop_index][::-1], linestyle="--", label="Synthetic")
+    detect_ax[0].axes.set_title("Channogram Detection")
+    detect_ax[0].axes.set_xlabel("Frequency (MHz)")
+    detect_ax[0].axes.set_ylabel("Detected Energy")
+    detect_ax[0].axes.grid(axis="y", which="major")
+    detect_ax[0].axes.set_ylim(-0.1, 1.1)
+    detect_ax[0].axes.set_xlim(-1.0, 2.0)
+    detect_ax[0].axes.legend(loc="best")
+    
+    detect_ax[1].axes.plot(np.fft.fftshift(f_)[start_fft_index:stop_fft_index], detected_energy_ota_spectro[::-1][start_fft_index:stop_fft_index], label="OTA")
+    detect_ax[1].axes.plot(np.fft.fftshift(f_)[start_fft_index:stop_fft_index], detected_energy_synthetic_spectro[::-1][start_fft_index:stop_fft_index], linestyle="--", label="Synthetic")
+    detect_ax[1].axes.set_title("Spectrogram Detection")
+    detect_ax[1].axes.set_xlabel("Frequency (MHz)")
+    detect_ax[1].axes.set_ylabel("Detected Energy")
+    detect_ax[1].axes.grid(axis="y", which="major")
+    detect_ax[1].axes.set_ylim(-0.1, 1.1)
+    detect_ax[1].axes.set_xlim(-1.0, 2.0)
+    detect_ax[1].axes.legend(loc="best")
+    
+    detect_fig.tight_layout()
+    detect_fig.savefig("../images/detection.png")
