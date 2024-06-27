@@ -124,7 +124,6 @@ if __name__ == "__main__":
     # ax[0].axes.minorticks_on()
     ax[0].axes.grid(axis="y", which="major")
     ax[0].axes.set_xlim(-1.0, 2.0)
-    ax[0].axes.legend(loc="best")
     ax[0].axes.set_title("Channogram")
     #ax[1].axes.set_aspect('auto')
     #ax[1].axes.set_xlabel("Frequency (MHz)")
@@ -166,7 +165,6 @@ if __name__ == "__main__":
     reduced_psd_ = 10*np.log10(np.fft.fftshift(psd_) / np.max(psd_))
     ax[1].plot(np.fft.fftshift(f_)[start_fft_index+1:stop_fft_index+1], reduced_psd_[::-1][start_fft_index:stop_fft_index], linestyle='--', label="synthetic")
     ax[1].plot([0.5, 0.5], [-60, 0], linestyle="--", color="black", label="true tone")
-    ax[1].axes.legend(loc="best")
     ax[1].plot([0.85, 0.85], [-60, 0], linestyle="--", color="black")
     ax[1].plot([1.26, 1.26], [-60, 0], linestyle="--", color="black")
     
@@ -182,20 +180,13 @@ if __name__ == "__main__":
     ax[1].axes.set_xlim(-1.0, 2.0)
     ax[1].axes.grid(axis="y", which="major")
     
+    
+    
     filtered_iq = medfilt(reduced_iq, kernel_size=5)
     filtered_psd = medfilt(reduced_psd, kernel_size=29)
 
     noise_floors = [np.mean(synth_reduced_iq), np.mean(reduced_psd_), np.mean(filtered_iq),  np.mean(reduced_psd)]
     
-    ax[0].plot(fs / 2 - fs * np.array([ind for ind in range(start_index, stop_index)][::-1]).astype("float32") / 1024, filtered_iq[start_index:stop_index][::-1], linestyle="--", label="filtered ota")
-    ax[1].plot(fs / 2 - fs * np.array([ind for ind in range(start_fft_index+1, stop_fft_index+1)][::-1]).astype("float32") / 1024, filtered_psd[start_fft_index+1:stop_fft_index+1][::-1], linestyle="--", label="filtered ota")
-    
-
-    # Detect energy in reduced_iq and synth_reduced_iq
-    # filtered_iq = medfilt(synth_reduced_iq, kernel_size=5)
-    # filtered_iq = medfilt(reduced_psd, kernel_size=5)
-    # filtered_iq = medfilt(reduced_psd_, kernel_size=5)
-
     
     threshold_ota_channogram, detected_energy_ota_channogram = detect(reduced_iq, noise_floors, multiplier, False, True)
     threshold_synthetic_channogram, detected_energy_synthetic_channogram = detect(synth_reduced_iq, noise_floors, multiplier, True, True)
@@ -203,8 +194,12 @@ if __name__ == "__main__":
     threshold_ota_spectro, detected_energy_ota_spectro = detect(reduced_psd, noise_floors, multiplier)
     threshold_synthetic_spectro, detected_energy_synthetic_spectro = detect(reduced_psd_, noise_floors, multiplier, True)
     
-    ax[0].plot([-fs/2, fs/2], [threshold_ota_channogram, threshold_ota_channogram], linestyle="--", color="red", label="OTA Threshold")
-    ax[1].plot([-fs/2, fs/2], [threshold_ota_spectro, threshold_ota_spectro], linestyle="--", color="red", label="OTA Threshold")
+    ax[0].plot([-fs/2, fs/2], [threshold_ota_channogram, threshold_ota_channogram], linestyle="--", color="red", label="threshold")
+    ax[1].plot([-fs/2, fs/2], [threshold_ota_spectro, threshold_ota_spectro], linestyle="--", color="red", label="threshold")
+    
+    ax[1].axes.legend(loc="best")
+    ax[0].axes.legend(loc="best")
+    
     
     fig.tight_layout()
     fig.savefig("../images/chann_spectrogram.png")
@@ -253,4 +248,4 @@ if __name__ == "__main__":
     
     
     detect_fig.tight_layout()
-    detect_fig.savefig("../images/detection.png")
+    # detect_fig.savefig("../images/detection.png")
