@@ -7,8 +7,7 @@ services:
     image: rust-cuda
     container_name: rust-cuda
     shm_size: '2048m'
-    networks:
-      - nw
+    network_mode: "host"
     devices:
       - nvidia.com/gpu=0
 
@@ -20,7 +19,7 @@ services:
       context: .
       dockerfile: Dockerfile
     image: rust-cuda
-    container_name: rust-cuda
+    container_name: rust-cuda-devel
     shm_size: '2048m'
     volumes:  
       - "vscode-config:/root/.vscode-server:rw"

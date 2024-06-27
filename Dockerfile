@@ -38,6 +38,8 @@ RUN apt-get update && apt-get -y install \
 
 RUN pip install numpy scipy matplotlib
 
+COPY . /root/channelizer
+
 # Set user specific environment variables
 ENV USER root
 ENV HOME /root
