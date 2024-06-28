@@ -17,7 +17,7 @@ For this milestone, we want to show that our polyphase filter bank achieves grea
     1. `docker load -i channelizer.tar`
     2. `docker-compose up rustcuda`
 
-2. Inside the container, run 
+2. Exec into the container and inside of `/root/channelizers`, run 
 
 ```
 cargo run --release --example three_tone_ota_test -- run \
