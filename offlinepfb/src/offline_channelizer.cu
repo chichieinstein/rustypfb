@@ -85,20 +85,21 @@ void __global__ half_multiply(cufftComplex* inp, cufftComplex* coeff, cufftCompl
     int input_id;
     if (half < (griddim / 2))
     {
-        input_ycoord = raw_ycoord;
-        // coeff_id     = input_ycoord*nslice + input_xcoord;
+   	input_ycoord = raw_ycoord;
+   //     // coeff_id     = input_ycoord*nslice + input_xcoord;
     }
-    else
-    {
-        input_ycoord = raw_ycoord - (griddim / 2)*blockDim.y; //(blockIdx.y - HALFSUBCHANNELS) * blockDim.y + threadIdx.y;
+   else
+   {
+   	input_ycoord = raw_ycoord - (griddim / 2)*blockDim.y; //(blockIdx.y - HALFSUBCHANNELS) * blockDim.y + threadIdx.y;
         // coeff_id     = (nchannel*nslice / 2) + input_ycoord*nslice + input_xcoord;
-    }
+   }
     input_id         = (nchannel / 2 - input_ycoord)*nslice + input_xcoord;
+    if (input_id < (nchannel * nslice / 2) and (output_id < nchannel*nslice)){
     cufftComplex lhs = inp[input_id];
     cufftComplex rhs = coeff[output_id];
     output[output_id] = make_cuComplex(lhs.x*rhs.x - lhs.y*rhs.y, lhs.x*rhs.y + lhs.y*rhs.x);
 }
-
+}
 void __global__ multiply(cufftComplex* inp, cufftComplex* coeff, cufftComplex* output, int nchannel, int nslice, int griddim)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -208,7 +209,8 @@ channelizer::channelizer(complex<float> *coeff_arr, int npr, int nchan, int nsl)
 
     // Allocate GPU memory to hold channelizer outputs.
     cudaMalloc((void **)&output_buffer, sizeof(cufftComplex) * nchannel * nslice);
-
+    auto err_t = cudaGetLastError();
+    cout << cudaGetErrorString(err_t) << endl;
     // Allocate GPU memory to hold filter application outputs.
     cudaMalloc((void **)&scratch_buffer, sizeof(cufftComplex) * nchannel * nslice);
 
@@ -274,7 +276,7 @@ void channelizer::process(float* input, cufftComplex* output)
     // float duration_;
     // time = 0.0;
     // cudaEventRecord(start,0);
-    cudaMemcpy(input_buffer, input, sizeof(cufftComplex)*nchannel*nslice / 2, cudaMemcpyHostToDevice);
+    gpuErrchk(cudaMemcpy(input_buffer, input, sizeof(cufftComplex)*nchannel*nslice / 2, cudaMemcpyHostToDevice));
     reshape<<<dimGridReshape, dimBlock>>>(input_buffer, reshaped_buffer, nchannel, nslice);
     cufftExecC2C(plan_0, reshaped_buffer, reshaped_buffer, CUFFT_FORWARD);
     half_multiply<<<dimGridMultiply, dimBlock>>>(reshaped_buffer, coeff_fft_polyphaseform, output_buffer, nchannel, nslice, gridchannels);

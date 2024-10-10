@@ -109,46 +109,46 @@ mod tests {
         let meta = metadata("../busyBand/DSSS.32cf").unwrap();
         let mut dsss_samples_bytes = Vec::new();
         let _ = dsss_file.read_to_end(&mut dsss_samples_bytes);
-        println!("This is the remainder : {}", dsss_samples_bytes.len() % std::mem::size_of::<f32>());
-        println!("This is the full: {}", dsss_samples_bytes.len());
-        println!("This is the expected length: {}", meta.len());
-        //let dsss_samples: &[f32] = bytemuck::cast_slice(&dsss_samples_bytes);
+        //println!("This is the remainder : {}", dsss_samples_bytes.len() % std::mem::size_of::<f32>());
+        //println!("This is the full: {}", dsss_samples_bytes.len());
+        //println!("This is the expected length: {}", meta.len());
+        let dsss_samples: &[f32] = bytemuck::cast_slice(&dsss_samples_bytes);
         // println!("{}", samples.len());
         // Copy onto input
-        //input_vec[..dsss_samples.len()].clone_from_slice(dsss_samples);
+        input_vec[..dsss_samples.len()].clone_from_slice(dsss_samples);
 
         // Process
-        //chann_obj.process(&mut input_vec, &mut output_buffer);
+        chann_obj.process(&mut input_vec, &mut output_buffer);
         // Transfer
-        //output_buffer.dump(&mut output_cpu);
+        output_buffer.dump(&mut output_cpu);
 
-        //let mut dsss_file = std::fs::File::create("../dsss_chann_output.32cf").unwrap();
-        //let dsss_outp_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut output_cpu);
-        //let _ = dsss_file.write_all(dsss_outp_slice);
+        let mut dsss_file = std::fs::File::create("../dsss_chann_output.32cf").unwrap();
+        let dsss_outp_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut output_cpu);
+        let _ = dsss_file.write_all(dsss_outp_slice);
 
 
         // Reset input
-        //input_vec.iter_mut().for_each(|x| *x = 0.0);
+        input_vec.iter_mut().for_each(|x| *x = 0.0);
 
 
         /*
          * LPI combined
          */
-        //let mut lpi_file = std::fs::File::open("../busyBand/lpi_combined.32cf").unwrap();
-        //let mut lpi_samples_bytes = Vec::new();
-        //let _ = lpi_file.read_to_end(&mut lpi_samples_bytes);
-        //let lpi_samples: &[f32] = bytemuck::cast_slice(&lpi_samples_bytes);
+        let mut lpi_file = std::fs::File::open("../busyBand/lpi_combined.32cf").unwrap();
+        let mut lpi_samples_bytes = Vec::new();
+        let _ = lpi_file.read_to_end(&mut lpi_samples_bytes);
+        let lpi_samples: &[f32] = bytemuck::cast_slice(&lpi_samples_bytes);
         // Copy onto input
-        //input_vec[..lpi_samples.len()].clone_from_slice(lpi_samples);
+        input_vec[..lpi_samples.len()].clone_from_slice(lpi_samples);
 
         // Process
-        //chann_obj.process(&mut input_vec, &mut output_buffer);
+        chann_obj.process(&mut input_vec, &mut output_buffer);
 
         // Transfer
-        //output_buffer.dump(&mut output_cpu);
+        output_buffer.dump(&mut output_cpu);
 
-        //let mut lpi_file = std::fs::File::create("../lpi_chann_output.32cf").unwrap();
-        //let lpi_outp_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut output_cpu);
-        //let _ = lpi_file.write_all(lpi_outp_slice);
+        let mut lpi_file = std::fs::File::create("../lpi_chann_output.32cf").unwrap();
+        let lpi_outp_slice: &mut [u8] = bytemuck::cast_slice_mut(&mut output_cpu);
+        let _ = lpi_file.write_all(lpi_outp_slice);
     }
 }
