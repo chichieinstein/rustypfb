@@ -1,0 +1,16 @@
+[workspace]
+members = ["streaming_channelizer", "offlinepfb-sys", "channelizer"]
+default-members = ["streaming_channelizer", "offlinepfb-sys", "channelizer"]
+
+[workspace.package]
+edition = "2021"
+
+[workspace.dependencies]
+bytemuck = "1.14.0"
+libm = "0.2.8"
+num = "0.4.1"
+cc = "1.0.83"
+num-complex = { version = "0.4.4", features=["bytemuck"]} 
+offlinepfb-sys = { path = "./offlinepfb-sys"}
+streaming_channelizer = { path = "./streaming_channelizer"}
+rustdevice = { git = "https://git@github.com/chichieinstein/rustycuda.git"}
