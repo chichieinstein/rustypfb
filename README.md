@@ -1,6 +1,6 @@
 This is an implementation of a Non-maximally decimated Polyphase Filter Bank (PFB) which is callable from the Rust programming Language. This filter bank supports perfect reconstruction. The backend is written in CUDA C++ for real time deployment. The image below illustrates the frequency responses of both the analysis and synthesis prototype filters used in the filter bank. The analysis filter is a simple Nyquist filter, and the passband of the synthesis filter is designed to completely cover the transition band of the analysis filter. This ensures distortion free reconstruction.
 
-The forward channelizer process function has been benchmarked to attain a throughput of ``~763 Megasamples per second`` on a single NVIDIA A10 GPU core. In order to check things are running as required, the test written in the root of the ``channelizer`` crate that creates channelized output needs to be run. All dependencies are listed in the Dockerfile included in the repo.
+The process function for the forward channelizer has been benchmarked to attain a throughput of ``~763 Megasamples per second`` on a single NVIDIA A10 GPU core. In order to check things are running as required, the test written in the root of the ``channelizer`` crate that creates channelized output needs to be run. All dependencies are listed in the Dockerfile included in the repo.
 
 ![Image Alt Text](/docs/filter_responses.png)
 
